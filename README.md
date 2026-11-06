@@ -66,7 +66,7 @@ Three armor workbenches, four display stands, a table with a lockbox, and a dedi
 
 ## Server settings
 
-Server settings live in `UserData/PlayerArmor/armor.json`. See [ExampleArmor.json](ExampleArmor.json) for armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
+Server settings live in `UserData/PlayerArmor/armor.json`. The release ZIP includes [ExampleArmor.json](ExampleArmor.json), which shows how to configure armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
 
 ## Build from source
 
@@ -80,9 +80,13 @@ From the repository root in PowerShell, run the build with your game directory.
 
 If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The build writes `PlayerArmor.Client.dll` and `PlayerArmor.Server.dll` to `src/bin/`. Use the installation steps above to install the DLL for each role.
 
-PLAYER ARMOR 0.9.4 - ADMIN SPAWN COMMANDS
+## Admin spawn commands
 
-Iron armor
+Replace `PLAYER` with the in-game username of a connected player. Run one command at a time in the server console.
+
+### Iron armor
+
+```text
 spawn PLAYER ATT_IronArmor_Helmet
 spawn PLAYER ATT_IronArmor_Cuirass
 spawn PLAYER ATT_IronArmor_Pauldron_Left
@@ -90,8 +94,11 @@ spawn PLAYER ATT_IronArmor_Pauldron_Right
 spawn PLAYER ATT_IronArmor_Bracer_Left
 spawn PLAYER ATT_IronArmor_Bracer_Right
 spawn PLAYER ATT_IronArmor_Tassets
+```
 
-Leather armor
+### Leather armor
+
+```text
 spawn PLAYER ATT_LeatherArmor_Helmet
 spawn PLAYER ATT_LeatherArmor_Cuirass
 spawn PLAYER ATT_LeatherArmor_Pauldron_Left
@@ -99,8 +106,11 @@ spawn PLAYER ATT_LeatherArmor_Pauldron_Right
 spawn PLAYER ATT_LeatherArmor_Bracer_Left
 spawn PLAYER ATT_LeatherArmor_Bracer_Right
 spawn PLAYER ATT_LeatherArmor_Tassets
+```
 
-Woodland armor
+### Woodland armor
+
+```text
 spawn PLAYER ATT_WoodlandArmor_Helmet
 spawn PLAYER ATT_WoodlandArmor_Cuirass
 spawn PLAYER ATT_WoodlandArmor_Pauldron_Left
@@ -108,8 +118,11 @@ spawn PLAYER ATT_WoodlandArmor_Pauldron_Right
 spawn PLAYER ATT_WoodlandArmor_Bracer_Left
 spawn PLAYER ATT_WoodlandArmor_Bracer_Right
 spawn PLAYER ATT_WoodlandArmor_Tassets
+```
 
-Hebios armor
+### Hebios armor
+
+```text
 spawn PLAYER ATT_HebiosArmor_Helmet
 spawn PLAYER ATT_HebiosArmor_Cuirass
 spawn PLAYER ATT_HebiosArmor_Pauldron_Left
@@ -117,8 +130,11 @@ spawn PLAYER ATT_HebiosArmor_Pauldron_Right
 spawn PLAYER ATT_HebiosArmor_Bracer_Left
 spawn PLAYER ATT_HebiosArmor_Bracer_Right
 spawn PLAYER ATT_HebiosArmor_Tassets
+```
 
-Wyrm armor
+### Wyrm armor
+
+```text
 spawn PLAYER ATT_WyrmArmor_Helmet
 spawn PLAYER ATT_WyrmArmor_Cuirass
 spawn PLAYER ATT_WyrmArmor_Pauldron_Left
@@ -126,8 +142,11 @@ spawn PLAYER ATT_WyrmArmor_Pauldron_Right
 spawn PLAYER ATT_WyrmArmor_Bracer_Left
 spawn PLAYER ATT_WyrmArmor_Bracer_Right
 spawn PLAYER ATT_WyrmArmor_Tassets
+```
 
-Iron recipe pages
+### Iron recipe pages
+
+```text
 spawn PLAYER ATT_ArmorRecipe_Iron_Helmet
 spawn PLAYER ATT_ArmorRecipe_Iron_Cuirass
 spawn PLAYER ATT_ArmorRecipe_Iron_Pauldron_Left
@@ -135,8 +154,11 @@ spawn PLAYER ATT_ArmorRecipe_Iron_Pauldron_Right
 spawn PLAYER ATT_ArmorRecipe_Iron_Bracer_Left
 spawn PLAYER ATT_ArmorRecipe_Iron_Bracer_Right
 spawn PLAYER ATT_ArmorRecipe_Iron_Tassets
+```
 
-Leather recipe pages
+### Leather recipe pages
+
+```text
 spawn PLAYER ATT_ArmorRecipe_Leather_Helmet
 spawn PLAYER ATT_ArmorRecipe_Leather_Cuirass
 spawn PLAYER ATT_ArmorRecipe_Leather_Pauldron_Left
@@ -144,8 +166,11 @@ spawn PLAYER ATT_ArmorRecipe_Leather_Pauldron_Right
 spawn PLAYER ATT_ArmorRecipe_Leather_Bracer_Left
 spawn PLAYER ATT_ArmorRecipe_Leather_Bracer_Right
 spawn PLAYER ATT_ArmorRecipe_Leather_Tassets
+```
 
-Woodland recipe pages
+### Woodland recipe pages
+
+```text
 spawn PLAYER ATT_ArmorRecipe_Woodland_Helmet
 spawn PLAYER ATT_ArmorRecipe_Woodland_Cuirass
 spawn PLAYER ATT_ArmorRecipe_Woodland_Pauldron_Left
@@ -153,8 +178,11 @@ spawn PLAYER ATT_ArmorRecipe_Woodland_Pauldron_Right
 spawn PLAYER ATT_ArmorRecipe_Woodland_Bracer_Left
 spawn PLAYER ATT_ArmorRecipe_Woodland_Bracer_Right
 spawn PLAYER ATT_ArmorRecipe_Woodland_Tassets
+```
 
-Hebios recipe pages
+### Hebios recipe pages
+
+```text
 spawn PLAYER ATT_ArmorRecipe_Hebios_Helmet
 spawn PLAYER ATT_ArmorRecipe_Hebios_Cuirass
 spawn PLAYER ATT_ArmorRecipe_Hebios_Pauldron_Left
@@ -162,13 +190,17 @@ spawn PLAYER ATT_ArmorRecipe_Hebios_Pauldron_Right
 spawn PLAYER ATT_ArmorRecipe_Hebios_Bracer_Left
 spawn PLAYER ATT_ArmorRecipe_Hebios_Bracer_Right
 spawn PLAYER ATT_ArmorRecipe_Hebios_Tassets
+```
 
-Workshop and display
+### Workshop and display
+
+```text
 spawn PLAYER ATT_ArmorWorkshop
 spawn PLAYER ATT_ArmorCraftingTable
 spawn PLAYER ATT_ArmorRecipeBook
 spawn PLAYER ATT_ArmorRecipeLectern
 spawn PLAYER ATT_ArmorStand
+```
 
 Mushroom Warden gear comes from world loot chests. Wyrm gear can also drop from Wyrms.
 
