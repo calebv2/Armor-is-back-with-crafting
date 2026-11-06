@@ -43,6 +43,23 @@ By default, each point of damage absorbed costs one point of durability. At zero
 
 Older pieces without a saved material palette keep their original appearance.
 
+### Full-set weight by metal
+
+Each total covers all seven pieces with every plate made from the same standard ATT metal. The table runs from lightest to heaviest.
+
+| Plate metal | Iron set weight | Hebios set weight |
+| --- | ---: | ---: |
+| Mythril | 10.50 | 9.00 |
+| Copper | 11.90 | 10.20 |
+| Iron | 14.00 | 12.00 |
+| Red Iron | 16.80 | 14.40 |
+| Palladium | 17.50 | 15.00 |
+| Silver | 21.00 | 18.00 |
+| Electrum | 22.40 | 19.20 |
+| Viridium | 24.50 | 21.00 |
+| Gold | 42.00 | 36.00 |
+| Valyan | 42.00 | 36.00 |
+
 ## :hammer: Taking armor apart
 
 1. Remove the recipe page and clear any active project from an Armor Workshop bench.
