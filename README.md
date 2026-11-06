@@ -1,6 +1,6 @@
-# Player Armor for A Township Tale
+# :shield: Player Armor 0.9.4 for A Township Tale
 
-Player Armor adds six wearable sets, a dedicated Armor Workshop, and 28 crafting recipes. Players can mix armor pieces from different sets.
+Six armor sets, 42 pieces, 28 crafting recipes, and a dedicated Armor Workshop. Each set has seven pieces, and you can mix pieces from different sets.
 
 ## Download and install
 
@@ -11,17 +11,14 @@ Download `PlayerArmor-0.9.4.zip` from the [0.9.4 release](https://github.com/cal
 3. Copy `Client/Mods/PlayerArmor.Client.dll` into each PC client’s `Mods` folder.
 4. Restart the server and clients. When upgrading, replace the previous DLL for each role and keep your existing world save, `armor.json`, and `recipe-history.json`.
 
-## Finding and using armor
+## :hammer_pick: Craftable at the Armor Workshop
 
-- **Crafting.** Craft Iron, Hebios, Leather, and Woodland at the Armor Workshop. The central Armor Recipe Book displays learned recipes. An administrator can place a workshop with `ATT_ArmorWorkshop`. It comes with three workbenches and four display stands.
-- **Loot.** A world loot chest has a 10% default chance to add one random Mushroom Warden piece when stocked or restocked if a compatible slot is free. Each Wyrm kill has a 5% chance to drop one random Wyrm piece.
-- **Equipping.** Open **Equipment** from the quick wheel. Hold the armor piece at the matching point on the dummy and release when the fitting ring turns green. To remove it, grip it on the dummy with an empty hand and pull it away.
-- **Disassembly.** Release one loose piece over an empty Armor Workshop bench with its recipe page removed. The outermost ingredient comes loose first. Use a chisel and hammer to recover the remaining parts. Items with saved recipe records return their original materials.
-- **Repair.** Servers with a compatible Repair Shop mod can restore durability at that shop. A piece stops protecting at zero durability.
+- **Iron** — 35% damage reduction · 500 base durability per piece · 14 base weight per set. Uses forged medium square metal plates and buckles.
+- **Hebios** — 35% damage reduction · 500 base durability per piece · 12 base weight per set. Uses forged medium square metal plates and leather straps. Dyed straps keep their color.
+- **Leather** — 18% damage reduction · 250 durability per piece · 6 weight per set. The rolls set the panel colors, and the strips set the strap colors.
+- **Woodland** — 8 weight per set. Uses woodcut wedges and rope. Each panel takes on the color of its wood. Mixed woods keep their individual colors, and the piece averages the durability and protection of its wedges.
 
-## Materials in 0.9.4
-
-Woodland panels inherit the colors of their wedges. If you mix woods, the piece averages their durability and protection while keeping each panel’s color.
+### Woodland stats per piece, using one wood throughout
 
 | Wood | Default durability per piece | Default damage reduction |
 | --- | ---: | ---: |
@@ -31,7 +28,43 @@ Woodland panels inherit the colors of their wedges. If you mix woods, the piece 
 | Redwood | 350 | 23.4% |
 | Ash | 400 | 26.1% |
 
-Leather panels inherit their roll colors. Leather and Hebios straps inherit their strip colors. Iron and Hebios plates keep their metal colors and average their weight and durability multipliers. Older pieces without a saved material palette keep their original appearance.
+## :evergreen_tree: Found in the world
+
+- **Mushroom Warden** — 18% damage reduction · 250 durability per piece · 5 weight per set. World loot chests have a 10% chance to add one random piece when stocked or restocked, if a compatible slot is free.
+- **Wyrm** — 18% damage reduction · 250 durability per piece · 9 weight per set. Each Wyrm kill has a **5% chance (1 in 20)** to drop one random piece.
+
+## :crossed_swords: Protection, wear, and weight
+
+The piece covering the area hit reduces eligible slashing, piercing, blunt, and explosive damage. Protection applies per hit without stacking across your outfit. Falls, hunger, poison, and fire bypass armor.
+
+By default, each point of damage absorbed costs one point of durability. At zero durability, the piece stops protecting until repaired. Held, stored, and worn armor count toward ATT’s normal load, which can affect climbing. Chest pieces weigh the most.
+
+**Iron and Hebios** can use mixed metals. Each plate keeps its metal’s color. The plate weight and durability multipliers are averaged separately, and protection stays at 35%.
+
+Older pieces without a saved material palette keep their original appearance.
+
+## :hammer: Taking armor apart
+
+1. Remove the recipe page and clear any active project from an Armor Workshop bench.
+2. Hold one loose armor piece over the empty bench and release it.
+3. The outermost ingredient comes loose first. Use a chisel and hammer to free the rest, working inward.
+
+Pieces with a saved recipe record return their original ingredients, including mixed woods, mixed metals, and dyed leather. Older pieces may use recipe defaults where material details are missing.
+
+## :person_standing: Equipping, displaying, and repairing
+
+- **Equip** through the **Equipment** dummy in your quick wheel or at the matching point on your body. Wait for the ring to turn green, then release.
+- **Remove** armor by gripping the equipped piece on the dummy with an empty hand and pulling away.
+- **Display** armor on an armor stand. Release each piece against its matching support and grip it to take it back.
+- **Repair** damaged armor at the Repair Shop on servers with the compatible mod.
+
+Equipped armor stows with your belongings during the Climbing Tower’s Spirit mode and returns when you leave.
+
+## :book: The Armor Workshop
+
+Three armor workbenches, four display stands, a table with a lockbox, and a dedicated Armor Recipe Book on the central lectern. Pick up the book to browse recipes learned on your server. An administrator can place a workshop with `ATT_ArmorWorkshop`.
+
+## Server settings
 
 Server settings live in `UserData/PlayerArmor/armor.json`. The ZIP includes `ExampleArmor.json` as a reference for armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
 
