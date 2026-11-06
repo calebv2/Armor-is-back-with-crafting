@@ -66,7 +66,19 @@ Three armor workbenches, four display stands, a table with a lockbox, and a dedi
 
 ## Server settings
 
-Server settings live in `UserData/PlayerArmor/armor.json`. The ZIP includes `ExampleArmor.json` as a reference for armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
+Server settings live in `UserData/PlayerArmor/armor.json`. See [ExampleArmor.json](ExampleArmor.json) for armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
+
+## Build from source
+
+Use Windows with a local A Township Tale PC installation, MelonLoader with its `net35` assemblies, SyncLib 1.1.1, and Unity 2020.3.23f1’s Roslyn C# compiler. The repository includes the runtime source and prebuilt Unity art bundles used by the mod.
+
+From the repository root in PowerShell, run the build with your game directory.
+
+```powershell
+.\src\Build-Windows.ps1 -GamePath 'D:\Games\A Township Tale'
+```
+
+If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The build writes `PlayerArmor.Client.dll` and `PlayerArmor.Server.dll` to `src/bin/`. Use the installation steps above to install the DLL for each role.
 
 PLAYER ARMOR 0.9.4 - ADMIN SPAWN COMMANDS
 

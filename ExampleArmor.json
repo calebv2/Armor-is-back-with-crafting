@@ -1,0 +1,739 @@
+{
+  "schemaVersion": 1,
+  "protectionEnabled": true,
+  "durabilityEnabled": true,
+  "cosmeticCompatibilityEnabled": true,
+  "craftingEnabled": true,
+  "mushroomChestChancePercent": 10.0,
+  "woodMaterials": [
+    {
+      "material": "Birch",
+      "durabilityMultiplier": 0.8,
+      "damageReductionMultiplier": 0.8
+    },
+    {
+      "material": "Oak",
+      "durabilityMultiplier": 1.0,
+      "damageReductionMultiplier": 1.0
+    },
+    {
+      "material": "Walnut",
+      "durabilityMultiplier": 1.2,
+      "damageReductionMultiplier": 1.15
+    },
+    {
+      "material": "Redwood",
+      "durabilityMultiplier": 1.4,
+      "damageReductionMultiplier": 1.3
+    },
+    {
+      "material": "Ash",
+      "durabilityMultiplier": 1.6,
+      "damageReductionMultiplier": 1.45
+    }
+  ],
+  "pieces": [
+    {
+      "prefabName": "ATT_IronArmor_Helmet",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Cuirass",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Pauldron_Left",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Pauldron_Right",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Bracer_Left",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Bracer_Right",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_IronArmor_Tassets",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Helmet",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Cuirass",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Pauldron_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Pauldron_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Bracer_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Bracer_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Tassets",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Helmet",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Cuirass",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Pauldron_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Pauldron_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Bracer_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Bracer_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Tassets",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Helmet",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Cuirass",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Pauldron_Left",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Pauldron_Right",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Bracer_Left",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Bracer_Right",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Tassets",
+      "damageReduction": 0.35,
+      "maximumDurability": 500.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Helmet",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Cuirass",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Pauldron_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Pauldron_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Bracer_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Bracer_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_MushroomArmor_Tassets",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Helmet",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Cuirass",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Pauldron_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Pauldron_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Bracer_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Bracer_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_WyrmArmor_Tassets",
+      "damageReduction": 0.18,
+      "maximumDurability": 250.0,
+      "wearPerAbsorbedDamage": 1.0
+    }
+  ],
+  "recipes": [
+    {
+      "prefabName": "ATT_IronArmor_Helmet",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 3
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Cuirass",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Pauldron_Left",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Pauldron_Right",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Bracer_Left",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Bracer_Right",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_IronArmor_Tassets",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 4
+        },
+        {
+          "code": "62594",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Helmet",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Cuirass",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Pauldron_Left",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Pauldron_Right",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Bracer_Left",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 1
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 2
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Bracer_Right",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 1
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 2
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_LeatherArmor_Tassets",
+      "ingredients": [
+        {
+          "code": "47760",
+          "material": null,
+          "quantity": 4
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Helmet",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 3
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Cuirass",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Pauldron_Left",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Pauldron_Right",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Bracer_Left",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Bracer_Right",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_WoodlandArmor_Tassets",
+      "ingredients": [
+        {
+          "code": "47118",
+          "material": null,
+          "quantity": 4
+        },
+        {
+          "code": "43836",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Helmet",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 3
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Cuirass",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Pauldron_Left",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Pauldron_Right",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Bracer_Left",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Bracer_Right",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 2
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    },
+    {
+      "prefabName": "ATT_HebiosArmor_Tassets",
+      "ingredients": [
+        {
+          "code": "50988",
+          "material": null,
+          "quantity": 4
+        },
+        {
+          "code": "63204",
+          "material": null,
+          "quantity": 1
+        }
+      ],
+      "layoutVersion": 3
+    }
+  ]
+}

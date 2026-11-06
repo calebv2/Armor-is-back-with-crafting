@@ -1,0 +1,2 @@
+# Preserve embedded resources byte for byte across checkouts.
+/src/Builds/** -text
