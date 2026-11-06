@@ -68,6 +68,98 @@ Three armor workbenches, four display stands, a table with a lockbox, and a dedi
 
 Server settings live in `UserData/PlayerArmor/armor.json`. The ZIP includes `ExampleArmor.json` as a reference for armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
 
+PLAYER ARMOR 0.9.4 - ADMIN SPAWN COMMANDS
+
+Iron armor
+spawn PLAYER ATT_IronArmor_Helmet
+spawn PLAYER ATT_IronArmor_Cuirass
+spawn PLAYER ATT_IronArmor_Pauldron_Left
+spawn PLAYER ATT_IronArmor_Pauldron_Right
+spawn PLAYER ATT_IronArmor_Bracer_Left
+spawn PLAYER ATT_IronArmor_Bracer_Right
+spawn PLAYER ATT_IronArmor_Tassets
+
+Leather armor
+spawn PLAYER ATT_LeatherArmor_Helmet
+spawn PLAYER ATT_LeatherArmor_Cuirass
+spawn PLAYER ATT_LeatherArmor_Pauldron_Left
+spawn PLAYER ATT_LeatherArmor_Pauldron_Right
+spawn PLAYER ATT_LeatherArmor_Bracer_Left
+spawn PLAYER ATT_LeatherArmor_Bracer_Right
+spawn PLAYER ATT_LeatherArmor_Tassets
+
+Woodland armor
+spawn PLAYER ATT_WoodlandArmor_Helmet
+spawn PLAYER ATT_WoodlandArmor_Cuirass
+spawn PLAYER ATT_WoodlandArmor_Pauldron_Left
+spawn PLAYER ATT_WoodlandArmor_Pauldron_Right
+spawn PLAYER ATT_WoodlandArmor_Bracer_Left
+spawn PLAYER ATT_WoodlandArmor_Bracer_Right
+spawn PLAYER ATT_WoodlandArmor_Tassets
+
+Hebios armor
+spawn PLAYER ATT_HebiosArmor_Helmet
+spawn PLAYER ATT_HebiosArmor_Cuirass
+spawn PLAYER ATT_HebiosArmor_Pauldron_Left
+spawn PLAYER ATT_HebiosArmor_Pauldron_Right
+spawn PLAYER ATT_HebiosArmor_Bracer_Left
+spawn PLAYER ATT_HebiosArmor_Bracer_Right
+spawn PLAYER ATT_HebiosArmor_Tassets
+
+Wyrm armor
+spawn PLAYER ATT_WyrmArmor_Helmet
+spawn PLAYER ATT_WyrmArmor_Cuirass
+spawn PLAYER ATT_WyrmArmor_Pauldron_Left
+spawn PLAYER ATT_WyrmArmor_Pauldron_Right
+spawn PLAYER ATT_WyrmArmor_Bracer_Left
+spawn PLAYER ATT_WyrmArmor_Bracer_Right
+spawn PLAYER ATT_WyrmArmor_Tassets
+
+Iron recipe pages
+spawn PLAYER ATT_ArmorRecipe_Iron_Helmet
+spawn PLAYER ATT_ArmorRecipe_Iron_Cuirass
+spawn PLAYER ATT_ArmorRecipe_Iron_Pauldron_Left
+spawn PLAYER ATT_ArmorRecipe_Iron_Pauldron_Right
+spawn PLAYER ATT_ArmorRecipe_Iron_Bracer_Left
+spawn PLAYER ATT_ArmorRecipe_Iron_Bracer_Right
+spawn PLAYER ATT_ArmorRecipe_Iron_Tassets
+
+Leather recipe pages
+spawn PLAYER ATT_ArmorRecipe_Leather_Helmet
+spawn PLAYER ATT_ArmorRecipe_Leather_Cuirass
+spawn PLAYER ATT_ArmorRecipe_Leather_Pauldron_Left
+spawn PLAYER ATT_ArmorRecipe_Leather_Pauldron_Right
+spawn PLAYER ATT_ArmorRecipe_Leather_Bracer_Left
+spawn PLAYER ATT_ArmorRecipe_Leather_Bracer_Right
+spawn PLAYER ATT_ArmorRecipe_Leather_Tassets
+
+Woodland recipe pages
+spawn PLAYER ATT_ArmorRecipe_Woodland_Helmet
+spawn PLAYER ATT_ArmorRecipe_Woodland_Cuirass
+spawn PLAYER ATT_ArmorRecipe_Woodland_Pauldron_Left
+spawn PLAYER ATT_ArmorRecipe_Woodland_Pauldron_Right
+spawn PLAYER ATT_ArmorRecipe_Woodland_Bracer_Left
+spawn PLAYER ATT_ArmorRecipe_Woodland_Bracer_Right
+spawn PLAYER ATT_ArmorRecipe_Woodland_Tassets
+
+Hebios recipe pages
+spawn PLAYER ATT_ArmorRecipe_Hebios_Helmet
+spawn PLAYER ATT_ArmorRecipe_Hebios_Cuirass
+spawn PLAYER ATT_ArmorRecipe_Hebios_Pauldron_Left
+spawn PLAYER ATT_ArmorRecipe_Hebios_Pauldron_Right
+spawn PLAYER ATT_ArmorRecipe_Hebios_Bracer_Left
+spawn PLAYER ATT_ArmorRecipe_Hebios_Bracer_Right
+spawn PLAYER ATT_ArmorRecipe_Hebios_Tassets
+
+Workshop and display
+spawn PLAYER ATT_ArmorWorkshop
+spawn PLAYER ATT_ArmorCraftingTable
+spawn PLAYER ATT_ArmorRecipeBook
+spawn PLAYER ATT_ArmorRecipeLectern
+spawn PLAYER ATT_ArmorStand
+
+Mushroom Warden gear comes from world loot chests. Wyrm gear can also drop from Wyrms.
+
 ## Credits
 
 Original A Township Tale game assets by Alta. The Wyrm armor restoration uses assets from [Nyx12012’s ArmorRestored](https://github.com/Nyx12012/ArmorRestored/tree/4dfa5783a09ca4113f9173275bce74cc10584dd2).
