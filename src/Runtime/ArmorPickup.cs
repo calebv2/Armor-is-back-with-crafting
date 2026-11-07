@@ -13,14 +13,12 @@ namespace PlayerArmorMod
         public Transform Art;
         internal float Weight { get; set; }
         Renderer[] renderers;
-#if CLIENT
         bool? shown;
         ArmorMaterialAppearance materialAppearance;
         ArmorMaterialState materialState;
         uint materialLayout=1;
         uint materialRevision=uint.MaxValue;
         uint[] materialHashes=new uint[0];
-#endif
         Pickup pickup;
         public override void Initialize()
         {
@@ -42,7 +40,7 @@ namespace PlayerArmorMod
         }
         void LateUpdate()
         {
-#if CLIENT
+            if(Core.IsServer)return;
             if(pickup==null)pickup=GetComponent<Pickup>();
             if(ArmorCatalog.UsesCraftMaterials(Style)&&Art!=null)
             {
@@ -57,13 +55,10 @@ namespace PlayerArmorMod
             if(shown==visible)return;shown=visible;
             if(renderers==null)renderers=Art==null?new Renderer[0]:Art.GetComponentsInChildren<Renderer>(true);
             foreach(var renderer in renderers)if(renderer!=null)renderer.enabled=visible;
-#endif
         }
         void OnDestroy()
         {
-#if CLIENT
             if(materialAppearance!=null)materialAppearance.Dispose();materialAppearance=null;
-#endif
             ArmorSurfaceGrip.Unregister(pickup);
             if(pickup!=null)pickup.InteractionFilter-=FilterWearer;ArmorDurability.Unregister(this);
         }

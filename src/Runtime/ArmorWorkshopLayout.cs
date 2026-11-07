@@ -22,9 +22,7 @@ namespace PlayerArmorMod
         const int FurnitureCount = LockboxIndex + 1;
         public Transform[] PlacementMarkers;
         public NetworkPrefab[] FurniturePrefabs;
-#if SERVER
         bool queued;
-#endif
 
         internal void Configure(NetworkPrefab bench, NetworkPrefab stand, NetworkPrefab lectern, NetworkPrefab table, NetworkPrefab lockbox)
         {
@@ -53,7 +51,6 @@ namespace PlayerArmorMod
             FurniturePrefabs[index] = prefab;
         }
 
-#if SERVER
         int[] FindMissingFurniture(IEnumerable<NetworkEntity> children)
         {
             var remaining = children.Where(child => child != null && !child.IsBeingDestroyed).ToList();
@@ -86,7 +83,7 @@ namespace PlayerArmorMod
         public override void InitializeAsServer(SpawnData data)
         {
             base.InitializeAsServer(data);
-            if (queued) return;
+            if (!Core.IsServer || queued) return;
             queued = true;
             MelonCoroutines.Start(PlaceAfterChunking(SpawnData.ShouldGenerate(data)));
         }
@@ -173,6 +170,5 @@ namespace PlayerArmorMod
                 Core.Error("PLAYER_ARMOR_WORKSHOP_FURNISH_FAILED " + error);
             }
         }
-#endif
     }
 }

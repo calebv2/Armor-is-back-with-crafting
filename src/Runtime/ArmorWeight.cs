@@ -10,10 +10,9 @@ namespace PlayerArmorMod
         {
             harmony.Patch(AccessTools.PropertyGetter(typeof(Pickup), nameof(Pickup.PhysicalWeight)),
                 postfix: new HarmonyMethod(typeof(ArmorWeight), nameof(UseArmorWeight)));
-#if SERVER
-            harmony.Patch(AccessTools.Method(typeof(PlayerWeight), "GetInteractablesWeight"),
-                postfix: new HarmonyMethod(typeof(ArmorWeight), nameof(IncludeWornWeight)));
-#endif
+            if (Core.IsServer)
+                harmony.Patch(AccessTools.Method(typeof(PlayerWeight), "GetInteractablesWeight"),
+                    postfix: new HarmonyMethod(typeof(ArmorWeight), nameof(IncludeWornWeight)));
         }
 
         static void UseArmorWeight(Pickup __instance, ref float __result)
@@ -33,18 +32,15 @@ namespace PlayerArmorMod
             var pickup = armor.GetComponent<Pickup>();
             if (pickup == null) return;
             pickup.OnWeightChanged();
-#if SERVER
             // Saved profiles may load before Pickup has initialized its native dock state.
-            if (armor.Entity != null && armor.Entity.IsInitialized)
+            if (Core.IsServer && armor.Entity != null && armor.Entity.IsInitialized)
             {
                 var dock = pickup.Dock;
                 var harness = dock == null ? null : dock.GetComponentInParent<ArmorHarness>();
                 if (harness != null) RefreshWearer(harness.Owner);
             }
-#endif
         }
 
-#if SERVER
         static readonly MethodInfo requestWeightUpdate = AccessTools.Method(typeof(PlayerWeight), "OnWeightChanged");
 
         static void IncludeWornWeight(PlayerWeight __instance, PlayerController ___player, ref float __result)
@@ -54,10 +50,9 @@ namespace PlayerArmorMod
 
         internal static void RefreshWearer(PlayerController player)
         {
-            if (player == null || player.Entity == null || !player.Entity.IsInitialized || player.Entity.IsBeingDestroyed) return;
+            if (!Core.IsServer || player == null || player.Entity == null || !player.Entity.IsInitialized || player.Entity.IsBeingDestroyed) return;
             var stat = player.GetComponent<PlayerWeight>();
             if (stat != null) requestWeightUpdate.Invoke(stat, null);
         }
-#endif
     }
 }

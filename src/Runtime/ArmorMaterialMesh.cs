@@ -61,7 +61,7 @@ namespace PlayerArmorMod
             return true;
         }
         internal static Mesh Build(Mesh source,Color[] palette,uint layoutVersion=1,int primaryCount=0,bool tintFasteners=true,
-            ArmorStyle style=ArmorStyle.Metal,Color?[] hideSurfaces=null)
+            ArmorStyle style=ArmorStyle.Metal)
         {
             if(source==null||palette==null||palette.Length<1||palette.Length>32||(layoutVersion==2?!ArmorSemanticLayout.HasMetadata(source):!HasCoordinates(source)))throw new ArgumentException("Armor mesh has no canonical material coordinates");
             var points=source.vertices;var normals=source.normals;var tangents=source.tangents;var weights=source.boneWeights;
@@ -71,7 +71,6 @@ namespace PlayerArmorMod
             var neutralHide=new List<Vector2>();source.GetUVs(5,neutralHide);
             if(neutralHide.Count!=0&&neutralHide.Count!=points.Length)throw new ArgumentException("Armor soft-hide metadata has an incomplete vertex count");
             var authored=layoutVersion==2?ArmorSemanticLayout.Read(source):null;
-            var legacyHideUvs=style==ArmorStyle.Leather?source.uv:null;
             var originals=new List<int>();var colors=new List<Color>();var groups=new int[source.subMeshCount][];
             for(int sub=0;sub<source.subMeshCount;sub++)
             {
@@ -90,7 +89,7 @@ namespace PlayerArmorMod
                         {
                             section=(int)part.y;
                             if(section>=palette.Length)throw new ArgumentException("Material palette has fewer entries than authored parts");
-                            color=style==ArmorStyle.Leather?Dye(palette[section],hideSurfaces,sub):palette[section];
+                            color=palette[section];
                         }
                         else
                         {
@@ -100,18 +99,10 @@ namespace PlayerArmorMod
                             // an ingredient that was never saved on that item.
                             section=primaryCount+(int)part.y;
                             color=Color.white;
-                            if(tintFasteners&&primaryCount>0)
-                            {
-                                if(style==ArmorStyle.Metal)color=section<palette.Length?palette[section]:palette[0];
-                                else if(section<palette.Length)color=Dye(palette[section],hideSurfaces,sub);
-                            }
+                            if(tintFasteners&&primaryCount>0&&style==ArmorStyle.Metal)
+                                color=section<palette.Length?palette[section]:palette[0];
                         }
                     }
-                    // The original Leather atlas shares its sheet between hide
-                    // and three separate buckle/ring/rivet islands. Pickups and
-                    // worn parts retain identical UVs for the metal fittings.
-                    if(legacyHideUvs!=null&&legacyHideUvs.Length==points.Length&&
-                        Hardware(legacyHideUvs[indices[i]])&&Hardware(legacyHideUvs[indices[i+1]])&&Hardware(legacyHideUvs[indices[i+2]]))color=Color.white;
                     if(neutralHide.Count!=0)
                     {
                         bool first=NeutralHide(neutralHide[indices[i]]),second=NeutralHide(neutralHide[indices[i+1]]),third=NeutralHide(neutralHide[indices[i+2]]);
@@ -146,25 +137,14 @@ namespace PlayerArmorMod
             }
             result.bounds=source.bounds;return result;
         }
-        static Color Dye(Color shade,Color?[] surfaces,int submesh)
-        {
-            if(shade.a<=0||surfaces==null||submesh>=surfaces.Length||!surfaces[submesh].HasValue)return Color.white;
-            var surface=surfaces[submesh].Value;
-            // Neutralize the baked brown hue before applying the new native
-            // shade. The texture still supplies the stitching/grain and local
-            // variation, while the reference brightness keeps familiar contrast.
-            float brightness=Luminance(surface)/shade.a;
-            return new Color(DyeChannel(shade.r,brightness,surface.r),DyeChannel(shade.g,brightness,surface.g),DyeChannel(shade.b,brightness,surface.b),1);
-        }
-        static float DyeChannel(float shade,float brightness,float surface)
-        {return Mathf.Clamp(shade*brightness/Math.Max(surface,.003f),0,16);}
-        static bool Hardware(Vector2 uv)
+        // Buckle, ring and rivet islands in the original Leather atlas.
+        internal static bool Hardware(Vector2 uv)
         {
             return InAtlas(uv,.208f,.648f,.298f,.738f) || InAtlas(uv,.400f,.573f,.464f,.612f)
                 || InAtlas(uv,.452f,.368f,.625f,.539f);
         }
         static bool InAtlas(Vector2 uv,float u0,float v0,float u1,float v1)
         {return uv.x>=u0&&uv.x<=u1&&uv.y>=v0&&uv.y<=v1;}
-        static bool NeutralHide(Vector2 value){return value.x==1&&value.y==373;}
+        internal static bool NeutralHide(Vector2 value){return value.x==1&&value.y==373;}
     }
 }

@@ -9,19 +9,15 @@ namespace PlayerArmorMod
     // payment, custody, timers, and its normal native-module Restore operation.
     internal static class ArmorDurabilityRepairShop
     {
-#if SERVER
         static HarmonyLib.Harmony harmony;static float nextProbe;static bool installed,reportedMissing;
-#endif
         internal static void Install(HarmonyLib.Harmony value)
         {
-#if SERVER
+            if(!Core.IsServer)return;
             harmony=value;Tick();
-#endif
         }
         internal static void Tick()
         {
-#if SERVER
-            if(harmony==null||installed||Time.unscaledTime<nextProbe)return;nextProbe=Time.unscaledTime+30f;
+            if(!Core.IsServer||harmony==null||installed||Time.unscaledTime<nextProbe)return;nextProbe=Time.unscaledTime+30f;
             foreach(var assembly in AppDomain.CurrentDomain.GetAssemblies())
             {
                 var type=assembly.GetType("RepairShopMod.RepairItems",false);if(type==null)continue;
@@ -34,7 +30,6 @@ namespace PlayerArmorMod
                 Core.Log("PLAYER_ARMOR_REPAIRSHOP_READY registered armor accepted by existing shop; native payment and repair flow retained");return;
             }
             if(!reportedMissing){reportedMissing=true;Core.Log("PLAYER_ARMOR_REPAIRSHOP_OPTIONAL_NOT_FOUND armor repair requires the compatible Repair Shop mod; checking again for late load");}
-#endif
         }
         internal static bool IsRegisteredArmor(Pickup pickup)
         {
@@ -49,9 +44,7 @@ namespace PlayerArmorMod
         {if(!__result&&NetworkSceneManager.IsServer)__result=IsRegisteredArmor(pickup);}
         internal static void Dispose()
         {
-#if SERVER
             harmony=null;installed=false;reportedMissing=false;nextProbe=0;
-#endif
         }
     }
 }

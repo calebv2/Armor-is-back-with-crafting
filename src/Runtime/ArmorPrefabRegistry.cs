@@ -64,10 +64,11 @@ namespace PlayerArmorMod
                 if(WyrmTemplate==null)throw new InvalidDataException("Missing Wyrm art prefab");
             }
             catch(Exception error){Core.Error("PLAYER_ARMOR_WYRM_ART_FAILED "+error);yield break;}
-#if CLIENT
-            ArmorStereo.Configure(VisualTemplate);
-            ArmorStereo.Configure(WyrmTemplate);
-#endif
+            if(!Core.IsServer)
+            {
+                ArmorStereo.Configure(VisualTemplate);
+                ArmorStereo.Configure(WyrmTemplate);
+            }
             Core.Log("PLAYER_ARMOR_ART_READY six armor sets, 42 items, seven body slots");
         }
         void Register()
@@ -104,9 +105,7 @@ namespace PlayerArmorMod
                     leatherItems[(int)definition.Slot]=RegisterPiece(staging,donor,definition,LeatherPieces);
                 var harness=harnessTemplate.GetComponent<ArmorHarness>();harness.LeatherItems=leatherItems;
                 for(int i=0;i<ArmorCatalog.SlotCount;i++)harness.Docks[i].Settings.IncludedItems.Add(leatherItems[i]);
-#if SERVER
-                ArmorSettings.FreezeRecipes();
-#endif
+                if(Core.IsServer)ArmorSettings.FreezeRecipes();
                 // Original fourteen recipe pages precede every expansion item.
                 // Preserve all historical prefab registration offsets on a new
                 // SyncLib registry as well as existing saved name mappings.
@@ -141,17 +140,18 @@ namespace PlayerArmorMod
                 try { workshop=ArmorWorkshopPrefabs.Register(mod,staging,stand); }
                 catch(Exception error) { Core.Error("PLAYER_ARMOR_WORKSHOP_REGISTRATION_FAILED "+error); }
                 Ready=true;Core.Log("PLAYER_ARMOR_REGISTERED harness="+Harness.Hash+" sockets=7 styles=metal,leather,woodland,hebios,mushroom,wyrm protection=native durability=native");
-#if SERVER
-                try
+                if(Core.IsServer)
                 {
-                    string path=Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor");Directory.CreateDirectory(path);
-                    var names=ArmorCatalog.AllPieces.Select(d=>d.PrefabName+" #"+PiecesFor(d.Style)[(int)d.Slot].Hash+" ("+d.Style+" "+d.Slot+(ArmorCatalog.IsChestOnly(d.Style)?", world chest loot":d.Style==ArmorStyle.Wyrm?", Wyrm kill loot":"")+")").ToList();
-                    if(stand!=null)names.Add(ArmorStandPrefab.Name+" #"+stand.Hash+" (Armor stand)");
-                    names.AddRange(workshop.Select(prefab=>prefab.name+" #"+prefab.Hash+" (Armor workshop)"));
-                    File.WriteAllLines(Path.Combine(path,"prefabs.txt"),names.ToArray());
+                    try
+                    {
+                        string path=Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor");Directory.CreateDirectory(path);
+                        var names=ArmorCatalog.AllPieces.Select(d=>d.PrefabName+" #"+PiecesFor(d.Style)[(int)d.Slot].Hash+" ("+d.Style+" "+d.Slot+(ArmorCatalog.IsChestOnly(d.Style)?", world chest loot":d.Style==ArmorStyle.Wyrm?", Wyrm kill loot":"")+")").ToList();
+                        if(stand!=null)names.Add(ArmorStandPrefab.Name+" #"+stand.Hash+" (Armor stand)");
+                        names.AddRange(workshop.Select(prefab=>prefab.name+" #"+prefab.Hash+" (Armor workshop)"));
+                        File.WriteAllLines(Path.Combine(path,"prefabs.txt"),names.ToArray());
+                    }
+                    catch(Exception error){Core.Error("PLAYER_ARMOR_PREFAB_LIST_WRITE_FAILED "+error.GetBaseException().Message);}
                 }
-                catch(Exception error){Core.Error("PLAYER_ARMOR_PREFAB_LIST_WRITE_FAILED "+error.GetBaseException().Message);}
-#endif
             }
             catch(Exception error){Ready=false;Core.Error("PLAYER_ARMOR_REGISTRATION_FAILED "+error);}
         }
@@ -211,11 +211,12 @@ namespace PlayerArmorMod
             ArmorDurability.AddNative(root,marker);
             ArmorMaterialState.AddNative(root,marker);
             ArmorCraftRecord.AddNative(root);
-#if SERVER
-            // Headless pickups need their native collider and saved item only.
-            // Keep worn character skins out of every server-side loose entity.
-            Object.DestroyImmediate(art);marker.Art=null;
-#endif
+            if(Core.IsServer)
+            {
+                // Headless pickups need their native collider and saved item only.
+                // Keep worn character skins out of every server-side loose entity.
+                Object.DestroyImmediate(art);marker.Art=null;
+            }
             Core.Log("PLAYER_ARMOR_PICKUP_BOUNDS name="+definition.PrefabName+" center="+bounds.center.ToString("F3")+" size="+bounds.size.ToString("F3"));
             root.SetActive(true); // staging stays inactive; spawned instances must be enabled.
             return root;

@@ -20,7 +20,7 @@ namespace PlayerArmorMod
         static readonly FieldInfo project=ArmorNative.Field(typeof(GenericCraftingStation),"currentProject"),tracked=ArmorNative.Field(typeof(GenericCraftingStation),"trackedPickups");
         static readonly FieldInfo definition=ArmorNative.Field(typeof(GenericCraftingPiece),"definition"),gates=ArmorNative.Field(typeof(GenericCraftingComponent),"affectedBy");
         static readonly FieldInfo best=ArmorNative.Field(typeof(GenericCraftingComponent),"bestPieceKey"),center=ArmorNative.Field(typeof(GenericCraftingComponent),"centrePointOffset"),cached=ArmorNative.Field(typeof(GenericCraftingComponent),"cachedTransform");
-        static float nextPoll;static bool installed;
+        static bool installed;
         internal static void Install(HarmonyLib.Harmony harmony)
         {
             if(installed)return;installed=true;
@@ -77,24 +77,6 @@ namespace PlayerArmorMod
             var material=component.Material;string name=material==null?"none":material.name.Replace(' ','_');
             Emit(key,"stage="+stage+" station="+station.Entity.Identifier+" recipe="+value.Recipe.Hash+" pickup="+component.Entity.Identifier+" source="+source+" material="+name+" crafting="+ArmorSettings.Current.craftingEnabled+" active="+active+" gates="+(checks==null?-1:checks.Length)+" matching="+matching+" enabledEmpty="+empty+" distance="+(float.IsInfinity(minimum)?"none":Number(minimum))+" best="+best.GetValue(component)+" tracked="+isTracked,now,true);
         }
-        internal static void Update()
-        {
-            float now=Time.unscaledTime;if(!installed||now<nextPoll)return;nextPoll=now+1;
-            try
-            {
-                var stations=UnityEngine.Object.FindObjectsOfType<GenericCraftingStation>().Where(s=>Owned(s)!=null).ToArray();if(stations.Length==0)return;
-                foreach(var station in stations)ObserveProject(station,now);
-                // A hand scan can see a held ingredient even if the native deck
-                // never receives TriggerEnter. No world-item or physics scan.
-                foreach(var hand in UnityEngine.Object.FindObjectsOfType<Interactor>())
-                {
-                    var pickup=hand.InteractingWith as Pickup;if(pickup==null)continue;
-                    var component=pickup.GetComponent<GenericCraftingComponent>();if(component==null)continue;
-                    foreach(var station in stations)if((station.PiecesParent.position-pickup.transform.position).sqrMagnitude<=1.5625f)Observe(station,component,"near-held",now);
-                }
-            }
-            catch(Exception){} // Diagnostics cannot interrupt gameplay.
-        }
-        internal static void Dispose(){samples.Clear();installed=false;nextPoll=0;}
+        internal static void Dispose(){samples.Clear();installed=false;}
     }
 }

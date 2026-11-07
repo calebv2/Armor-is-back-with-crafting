@@ -53,12 +53,12 @@ namespace PlayerArmorMod
             if (ground < 0) throw new InvalidOperationException("Native Ground layer is unavailable");
             foreach (var collider in root.GetComponentsInChildren<Collider>(true))
                 collider.gameObject.layer = ground;
-#if CLIENT
-            ArmorStereo.Configure(root);
-#else
-            foreach (var renderer in root.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);
-            foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true)) Object.DestroyImmediate(filter);
-#endif
+            if(Core.IsServer)
+            {
+                foreach (var renderer in root.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);
+                foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true)) Object.DestroyImmediate(filter);
+            }
+            else ArmorStereo.Configure(root);
             ArmorStandDocks.Install(root, prefab, mounts, assets);
             ArmorNative.Bind(root);
             root.SetActive(true);

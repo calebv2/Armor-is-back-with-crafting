@@ -24,9 +24,7 @@ namespace PlayerArmorMod
         static readonly HashSet<uint> confirmedVersions=new HashSet<uint>();
         static readonly HashSet<uint> archivedVersionHashes=new HashSet<uint>();
         static string serverScope=Guid.NewGuid().ToString("N"),clientScope;
-#if CLIENT
         static float nextRetiredCollection;
-#endif
         internal static void SetServerEpoch(string epoch)
         {Guid value;if(!Guid.TryParseExact(epoch,"N",out value))throw new ArgumentException("Armor recipe epoch must be 32 hexadecimal characters");serverScope=value.ToString("N");}
         static readonly MethodInfo nativeRecipeReference=typeof(SerializeHashedObject).GetMethods(BindingFlags.Public|BindingFlags.Static)
@@ -39,36 +37,35 @@ namespace PlayerArmorMod
         {
             CheckHash<GenericCraftingRecipe>(ArmorCraftingRecipeCodec.Sentinel);
             bases.AddRange(planned);
-#if SERVER
-            string path=HistoryPath();
-            if(File.Exists(path))
+            if(Core.IsServer)
             {
-                var file=new FileInfo(path);if(file.Length>4*1024*1024)throw new InvalidDataException("recipe-history.json exceeds 4 MiB; preserve the file and restore a valid backup");
-                var history=ArmorCraftingRecipeCodec.ReadHistory(File.ReadAllText(path));
-                // Parse and validate the entire archive before native registration.
-                var seen=new HashSet<uint>();
-                foreach(var item in history.versions)
+                string path=HistoryPath();
+                if(File.Exists(path))
                 {
-                    if(item==null||item.hash==0||item.hash>=ArmorCraftingRecipeCodec.Sentinel||!seen.Add(item.hash))throw new InvalidDataException("Invalid or duplicate archived armor recipe hash");
-                    // Reserve every archived identity before selecting any new
-                    // active recipe, including expansion entries whose result
-                    // prefabs are appended only in the second registration batch.
-                    archivedVersionHashes.Add(item.hash);
-                    var settings=ArmorCraftingRecipeCodec.Parse(item.descriptor);
-                    if(!planned.Any(p=>p.Piece.PrefabName==settings.prefabName))continue;
-                    var basis=bases.Single(b=>b.Piece.PrefabName==settings.prefabName);
-                    ValidateRecipe(basis,settings);CheckHash<GenericCraftingRecipe>(item.hash);
+                    var file=new FileInfo(path);if(file.Length>4*1024*1024)throw new InvalidDataException("recipe-history.json exceeds 4 MiB; preserve the file and restore a valid backup");
+                    var history=ArmorCraftingRecipeCodec.ReadHistory(File.ReadAllText(path));
+                    // Parse and validate the entire archive before native registration.
+                    var seen=new HashSet<uint>();
+                    foreach(var item in history.versions)
+                    {
+                        if(item==null||item.hash==0||item.hash>=ArmorCraftingRecipeCodec.Sentinel||!seen.Add(item.hash))throw new InvalidDataException("Invalid or duplicate archived armor recipe hash");
+                        // Reserve every archived identity before selecting any new
+                        // active recipe, including expansion entries whose result
+                        // prefabs are appended only in the second registration batch.
+                        archivedVersionHashes.Add(item.hash);
+                        var settings=ArmorCraftingRecipeCodec.Parse(item.descriptor);
+                        if(!planned.Any(p=>p.Piece.PrefabName==settings.prefabName))continue;
+                        var basis=bases.Single(b=>b.Piece.PrefabName==settings.prefabName);
+                        ValidateRecipe(basis,settings);CheckHash<GenericCraftingRecipe>(item.hash);
+                    }
+                    foreach(var item in history.versions)
+                    {var settings=ArmorCraftingRecipeCodec.Parse(item.descriptor);if(planned.Any(p=>p.Piece.PrefabName==settings.prefabName))RegisterVersion(item.hash,item.descriptor);}
                 }
-                foreach(var item in history.versions)
-                {var settings=ArmorCraftingRecipeCodec.Parse(item.descriptor);if(planned.Any(p=>p.Piece.PrefabName==settings.prefabName))RegisterVersion(item.hash,item.descriptor);}
             }
-#endif
             foreach(var basis in planned)SelectActiveVersion(basis,ArmorSettings.ConstructionFor(basis.Piece));
-#if SERVER
             // First batch must not erase archived expansion recipes before
             // their result prefabs/templates have been appended and loaded.
-            if(complete)SaveHistory();
-#endif
+            if(Core.IsServer&&complete)SaveHistory();
         }
         static void SelectActiveVersion(Recipe basis,ArmorRecipeSettings settings)
         {
@@ -229,15 +226,14 @@ namespace PlayerArmorMod
         }
         internal static void Update()
         {
-            ArmorCraftingDiagnostics.Update();
-#if SERVER
-            UpdateWorkshopRefunds();
-#endif
-#if CLIENT
+            if(Core.IsServer)
+            {
+                UpdateWorkshopRefunds();
+                return;
+            }
             ArmorCraftingJig.Update();
             if(retiredVersions.Count==0||Time.unscaledTime<nextRetiredCollection)return;
             nextRetiredCollection=Time.unscaledTime+2;CollectRetired();
-#endif
         }
         static void CollectRetired()
         {
@@ -270,7 +266,6 @@ namespace PlayerArmorMod
                 UnityEngine.Object.Destroy(version.Native);retiredVersions.RemoveAt(i);
             }
         }
-#if SERVER
         static string HistoryPath(){return Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor","recipe-history.json");}
         static void SaveHistory()
         {
@@ -280,6 +275,5 @@ namespace PlayerArmorMod
             File.WriteAllText(temporary,json);
             if(File.Exists(path))File.Replace(temporary,path,path+".bak");else File.Move(temporary,path);
         }
-#endif
     }
 }

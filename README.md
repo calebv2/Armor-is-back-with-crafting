@@ -1,15 +1,17 @@
-# :shield: Player Armor 0.9.4 for A Township Tale
+# :shield: Player Armor 0.9.8 for A Township Tale
 
 Six armor sets, 42 pieces, 28 crafting recipes, and a dedicated Armor Workshop. Each set has seven pieces, and you can mix pieces from different sets.
 
 ## Download and install
 
-Download `PlayerArmor-0.9.4.zip` from the [0.9.4 release](https://github.com/calebv2/Armor-is-back-with-crafting/releases/tag/v0.9.4).
+Download `PlayerArmor-0.9.8.zip` from the [0.9.8 release](https://github.com/calebv2/Armor-is-back-with-crafting/releases/tag/v0.9.8).
 
 1. Install MelonLoader and SyncLib on the server and each PC client. This release was built with SyncLib 1.1.1.
-2. Copy `Server/Mods/PlayerArmor.Server.dll` into the server’s `Mods` folder.
-3. Copy `Client/Mods/PlayerArmor.Client.dll` into each PC client’s `Mods` folder.
-4. Restart the server and clients. When upgrading, replace the previous DLL for each role and keep your existing world save, `armor.json`, and `recipe-history.json`.
+2. When upgrading, remove `PlayerArmor.Client.dll` and `PlayerArmor.Server.dll` from the `Mods` folders you are updating.
+3. Copy `Mods/PlayerArmor.dll` from the ZIP into the server's and each PC client's `Mods` folder. The same DLL automatically selects server or client mode and also works with a shared `Mods` folder.
+4. Restart the server and clients. Keep your existing world save, `armor.json`, and `recipe-history.json`.
+
+Version 0.9.8 combines both roles into one DLL and includes the performance fix that removes repeating armor crafting diagnostic scene searches. It also includes the Woodland texture and dyed leather rendering improvements from 0.9.5 and 0.9.6.
 
 ## :hammer_pick: Craftable at the Armor Workshop
 
@@ -95,7 +97,7 @@ From the repository root in PowerShell, run the build with your game directory.
 .\src\Build-Windows.ps1 -GamePath 'D:\Games\A Township Tale'
 ```
 
-If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The build writes `PlayerArmor.Client.dll` and `PlayerArmor.Server.dll` to `src/bin/`. Use the installation steps above to install the DLL for each role.
+If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The build writes the combined `PlayerArmor.dll` to `src/bin/`. Use the same DLL for the server and PC clients.
 
 ## Admin spawn commands
 

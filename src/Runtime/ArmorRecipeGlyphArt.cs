@@ -38,7 +38,6 @@ namespace PlayerArmorMod
             int ink=0,clear=0;foreach(var p in pixels){if(p.a==0)clear++;else ink++;}
             if(clear==0||ink<16||ink>(long)pixels.Length*4/5)return false;reason=null;return true;
         }
-#if CLIENT
         sealed class Entry{internal Texture2D Texture;internal Sprite Sprite;}
         static readonly Dictionary<string,Entry> cache=new Dictionary<string,Entry>(StringComparer.Ordinal);
         static readonly HashSet<string> failed=new HashSet<string>(StringComparer.Ordinal);
@@ -56,11 +55,9 @@ namespace PlayerArmorMod
         {if(value==null)return;if(Application.isPlaying)UnityEngine.Object.Destroy(value);else UnityEngine.Object.DestroyImmediate(value);}
         static void Reject(string name,string reason)
         {if(failed.Add(name)&&failed.Count<=known.Count)Core.Log("PLAYER_ARMOR_RECIPE_GLYPH_FALLBACK name="+name+" reason="+(reason==null?"unavailable":reason.Substring(0,Math.Min(reason.Length,180))));}
-#endif
         internal static bool TryGet(ArmorPieceDefinition piece,out Sprite sprite)
         {
-            sprite=null;if(!Owns(piece))return false;
-#if CLIENT
+            sprite=null;if(Core.IsServer||!Owns(piece))return false;
             Entry existing;if(cache.TryGetValue(piece.PrefabName,out existing)){sprite=existing.Sprite;return sprite!=null;}
             if(failed.Contains(piece.PrefabName))return false;Texture2D texture=null;Sprite created=null;
             try
@@ -81,15 +78,11 @@ namespace PlayerArmorMod
             }
             catch(Exception error){Reject(piece.PrefabName,error.GetBaseException().Message);return false;}
             finally{Destroy(created);Destroy(texture);}
-#else
-            return false;
-#endif
         }
         internal static void Dispose()
         {
-#if CLIENT
+            if(Core.IsServer)return;
             foreach(var entry in cache.Values){Destroy(entry.Sprite);Destroy(entry.Texture);}cache.Clear();failed.Clear();cachedPixels=0;
-#endif
         }
     }
 }

@@ -1,4 +1,3 @@
-#if SERVER
 using System;
 using System.Collections;
 using System.Linq;
@@ -17,7 +16,7 @@ namespace PlayerArmorMod
     internal sealed partial class ArmorPickup : IGenericCraftingComponent
     {
         bool openingForDisassembly;
-        bool IGenericCraftingComponent.IsAddingProject { get { return true; } }
+        bool IGenericCraftingComponent.IsAddingProject { get { return Core.IsServer; } }
         void IGenericCraftingComponent.Track(GenericCraftingStation station) {}
         void IGenericCraftingComponent.Released(GenericCraftingStation station)
         {
@@ -251,5 +250,3 @@ namespace PlayerArmorMod
         }
     }
 }
-
-#endif

@@ -25,13 +25,14 @@ namespace PlayerArmorMod
             uint hash=ArmorCraftingPlan.Hash16("PlayerArmor/RecipeTitle/"+piece.PrefabName);CheckHash<Glyph>(hash);
             var glyph=ScriptableObject.CreateInstance<Glyph>();glyph.name=ArmorRecipeLabelArt.FullTitle(piece);
             ArmorNative.Set(glyph,"hash",(int)hash);
-#if CLIENT
-            var texture=new Texture2D(ArmorRecipeLabelArt.Size,ArmorRecipeLabelArt.Size,TextureFormat.RGBA32,false)
-                {name=glyph.name+" ink",hideFlags=HideFlags.DontSave,filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp};
-            texture.SetPixels32(ArmorRecipeLabelArt.Pixels(piece));texture.Apply(false,true);
-            var sprite=Sprite.Create(texture,new Rect(0,0,ArmorRecipeLabelArt.Size,ArmorRecipeLabelArt.Size),new Vector2(.5f,.5f),100);
-            sprite.name=glyph.name;ArmorNative.Set(glyph,"sprite",sprite);
-#endif
+            if(!Core.IsServer)
+            {
+                var texture=new Texture2D(ArmorRecipeLabelArt.Size,ArmorRecipeLabelArt.Size,TextureFormat.RGBA32,false)
+                    {name=glyph.name+" ink",hideFlags=HideFlags.DontSave,filterMode=FilterMode.Bilinear,wrapMode=TextureWrapMode.Clamp};
+                texture.SetPixels32(ArmorRecipeLabelArt.Pixels(piece));texture.Apply(false,true);
+                var sprite=Sprite.Create(texture,new Rect(0,0,ArmorRecipeLabelArt.Size,ArmorRecipeLabelArt.Size),new Vector2(.5f,.5f),100);
+                sprite.name=glyph.name;ArmorNative.Set(glyph,"sprite",sprite);
+            }
             AddValue(glyph);recipeLabels.Add(piece.PrefabName,glyph);
         }
         static void LabelArmorRecipePage(GenericCraftingRecipe recipe,PageData __result)

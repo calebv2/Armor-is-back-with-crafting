@@ -56,18 +56,17 @@ namespace PlayerArmorMod
                 prefix:new HarmonyMethod(typeof(ArmorCrafting),"AllowUnlock"));
             harmony.Patch(AccessTools.Method(typeof(GenericCraftingStation),"TrySetClosestPiece"),transpiler:new HarmonyMethod(typeof(ArmorCrafting),"ExpandArmorSnapRange"));
             harmony.Patch(AccessTools.Method(typeof(GenericCraftingStation),"CheckPageForRecipe"),postfix:new HarmonyMethod(typeof(ArmorCrafting),"CurrentJigFromPage"));
-#if SERVER
-            InstallDisassembly(harmony);
-            InstallWorkshopMigration(harmony);
-#endif
+            if(Core.IsServer)
+            {
+                InstallDisassembly(harmony);
+                InstallWorkshopMigration(harmony);
+            }
             InstallReferenceHooks(harmony);
             InstallMaterialHooks(harmony);
             InstallRecipeLabelHooks(harmony);
             ArmorRecipeBookIntegration.Install(harmony);
             ArmorCraftingDiagnostics.Install(harmony);
-#if CLIENT
-            ArmorRecipePageInteraction.Install(harmony);
-#endif
+            if(!Core.IsServer)ArmorRecipePageInteraction.Install(harmony);
             ArmorSettings.Changed+=SettingsChanged;
         }
         internal static void Register(MelonMod owner,GameObject staging,ArmorPrefabRegistry assets)
@@ -75,9 +74,7 @@ namespace PlayerArmorMod
         internal static void RegisterBatch(MelonMod owner,GameObject staging,ArmorPrefabRegistry assets,IEnumerable<ArmorPieceDefinition> definitions,bool complete)
         {
             if(registered)return;
-#if CLIENT
-            ArmorCraftingJig.Configure(assets.VisualTemplate);
-#endif
+            if(!Core.IsServer)ArmorCraftingJig.Configure(assets.VisualTemplate);
             nativeTemplates=HashedGeneralValue<GenericCraftingRecipe>.All.SelectMany(r=>r.Pieces).Where(p=>p!=null&&p.source!=null&&p.mesh!=null&&p.nailSettings!=null).ToArray();
             if(nativeTemplates.Length==0)throw new InvalidOperationException("Native workbench recipe templates are unavailable");
             // The lower-hash Duplicate Paper Variant (#11048) is deliberately
@@ -105,9 +102,7 @@ namespace PlayerArmorMod
                 var entry=planned[i];
                 var glyph=ScriptableObject.CreateInstance<Glyph>();glyph.name="Player Armor - "+entry.Piece.PrefabName;
                 ArmorNative.Set(glyph,"hash",(int)ArmorCraftingPlan.GlyphHash(entry.Piece.PrefabName));
-#if CLIENT
-                ArmorNative.Set(glyph,"sprite",RecipeIcon(entry.Piece,entry.Mesh));
-#endif
+                if(!Core.IsServer)ArmorNative.Set(glyph,"sprite",RecipeIcon(entry.Piece,entry.Mesh));
                 AddValue(glyph);
                 RegisterRecipeLabel(entry.Piece);
                 ArmorNative.Set(entry.Result.GetComponent<Pickup>().Item,"glyph",glyph);
@@ -134,10 +129,11 @@ namespace PlayerArmorMod
             registered=complete;remoteConfigured=NetworkSceneManager.IsServer||ArmorSettings.RemoteReady;
             if(complete)ArmorRecipeBookIntegration.Refresh();
             Core.Log("PLAYER_ARMOR_CRAFTING_READY enabled="+ArmorSettings.Current.craftingEnabled+" recipes="+recipes.Count+" snapRadius="+IngredientSnapRadius.ToString(CultureInfo.InvariantCulture));
-#if SERVER
-            string directory=Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor");Directory.CreateDirectory(directory);
-            File.WriteAllLines(Path.Combine(directory,"crafting-prefabs.txt"),recipes.Select(r=>ArmorCraftingPlan.PageName(r.Piece)+" #"+r.Page.Hash+" -> "+r.Piece.PrefabName+"; native recipe #"+r.Native.Hash).ToArray());
-#endif
+            if(Core.IsServer)
+            {
+                string directory=Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor");Directory.CreateDirectory(directory);
+                File.WriteAllLines(Path.Combine(directory,"crafting-prefabs.txt"),recipes.Select(r=>ArmorCraftingPlan.PageName(r.Piece)+" #"+r.Page.Hash+" -> "+r.Piece.PrefabName+"; native recipe #"+r.Native.Hash).ToArray());
+            }
         }
         static bool IsOriginalPaperDonor(NetworkPrefab prefab)
         {return prefab!=null&&prefab.Hash==37066u&&prefab.CanBeSpawnedThroughCommand&&prefab.GetComponent<Pickup>()!=null&&prefab.GetComponent<PaperPageInstance>()!=null;}
@@ -346,10 +342,11 @@ namespace PlayerArmorMod
         }
         internal static void Dispose(){ArmorSettings.Changed-=SettingsChanged;ArmorCraftingDiagnostics.Dispose();ArmorRecipeBookIntegration.Dispose();
             ArmorCraftingJigPlans.Dispose();
-#if CLIENT
-            ArmorCraftingJig.Dispose();
-            ArmorRecipeGlyphArt.Dispose();
-#endif
+            if(!Core.IsServer)
+            {
+                ArmorCraftingJig.Dispose();
+                ArmorRecipeGlyphArt.Dispose();
+            }
         }
     }
     internal sealed class ArmorCraftingPage : MonoBehaviour

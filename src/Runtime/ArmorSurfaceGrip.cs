@@ -121,15 +121,13 @@ namespace PlayerArmorMod
         static bool BeforeNetworkStart(Pickup __instance,INetworkInteractArgument args,Interactor interactor,out IncomingGrip __state)
         {
             __state=incoming;
-#if SERVER
             // Native network grabs can proceed after a failed interaction
             // assessment. Stop them before they reach a stowed armor pickup.
-            if(__instance.Dock!=null)
+            if(Core.IsServer&&__instance.Dock!=null)
             {
                 var harness=__instance.Dock.GetComponentInParent<ArmorHarness>();
                 if(harness!=null&&harness.Owner!=null&&harness.Owner.IsSpirit)return false;
             }
-#endif
             incoming=(args is GrabPointArguments && instances.ContainsKey(__instance)) ?
                 new IncomingGrip{Pickup=__instance,Hand=interactor} : default(IncomingGrip);
             return true;

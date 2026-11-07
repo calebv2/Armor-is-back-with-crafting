@@ -47,22 +47,20 @@ foreach($recipeGlyphName in $recipeGlyphNames){
     if(-not(Test-Path -LiteralPath $recipeGlyphPath -PathType Leaf) -or (Get-Item -LiteralPath $recipeGlyphPath).Length -eq 0){throw ('Missing/empty approved recipe glyph: '+$recipeGlyphName)}
 }
 New-Item -ItemType Directory -Path (Join-Path $PSScriptRoot 'bin') -Force | Out-Null
-foreach($role in @('Client','Server')){
-    $sources=@(Join-Path $PSScriptRoot 'AssemblyInfo.cs';Join-Path $PSScriptRoot 'Core.cs')
-    foreach($folder in @('Shared','Runtime',$role)){$sources+=Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -Filter '*.cs' | ForEach-Object {$_.FullName}}
-    $arguments=@('/nologo','/target:library','/langversion:latest','/nostdlib+','/optimize+',('/define:'+$role.ToUpperInvariant()),('/out:"'+(Join-Path $PSScriptRoot ('bin\PlayerArmor.'+$role+'.dll'))+'"'))
-    $arguments+='/resource:"'+$bundle+'",PlayerArmor.Model'
-    $arguments+='/resource:"'+$standBundle+'",PlayerArmor.Stand'
-    $arguments+='/resource:"'+$wyrmBundle+'",PlayerArmor.Wyrm'
-    $arguments+='/resource:"'+$workshopBundle+'",PlayerArmor.Workshop'
-    $arguments+='/resource:"'+$jigPlans+'",PlayerArmor.JigPlans'
-    if($role -eq 'Client'){
-        foreach($recipeGlyphName in $recipeGlyphNames){$arguments+='/resource:"'+(Join-Path $recipeGlyphDirectory ($recipeGlyphName+'.png'))+'",PlayerArmor.Glyphs.'+$recipeGlyphName+'.png'}
-    }
-    $arguments+=Get-ChildItem -LiteralPath $managed -Filter '*.dll' -File | ForEach-Object {'/reference:"'+$_.FullName+'"'}
-    foreach($dependency in $dependencies){$arguments+='/reference:"'+(Join-Path $GamePath $dependency)+'"'}
-    $arguments+=$sources | ForEach-Object {'"'+$_+'"'}
-    $response=Join-Path $PSScriptRoot ('bin\'+$role+'.rsp');Set-Content -LiteralPath $response -Value $arguments -Encoding utf8
-    & $CompilerPath ('@'+$response)
-    if($LASTEXITCODE -ne 0){throw "$role native compilation failed"}
-}
+$output=Join-Path $PSScriptRoot 'bin\PlayerArmor.dll'
+$sources=@(Join-Path $PSScriptRoot 'AssemblyInfo.cs';Join-Path $PSScriptRoot 'Core.cs')
+foreach($folder in @('Shared','Runtime','Client','Server')){$sources+=Get-ChildItem -LiteralPath (Join-Path $PSScriptRoot $folder) -Filter '*.cs' | ForEach-Object {$_.FullName}}
+$arguments=@('/nologo','/target:library','/langversion:latest','/nostdlib+','/optimize+',('/out:"'+$output+'"'))
+$arguments+='/resource:"'+$bundle+'",PlayerArmor.Model'
+$arguments+='/resource:"'+$standBundle+'",PlayerArmor.Stand'
+$arguments+='/resource:"'+$wyrmBundle+'",PlayerArmor.Wyrm'
+$arguments+='/resource:"'+$workshopBundle+'",PlayerArmor.Workshop'
+$arguments+='/resource:"'+$jigPlans+'",PlayerArmor.JigPlans'
+foreach($recipeGlyphName in $recipeGlyphNames){$arguments+='/resource:"'+(Join-Path $recipeGlyphDirectory ($recipeGlyphName+'.png'))+'",PlayerArmor.Glyphs.'+$recipeGlyphName+'.png'}
+$arguments+=Get-ChildItem -LiteralPath $managed -Filter '*.dll' -File | ForEach-Object {'/reference:"'+$_.FullName+'"'}
+foreach($dependency in $dependencies){$arguments+='/reference:"'+(Join-Path $GamePath $dependency)+'"'}
+$arguments+=$sources | ForEach-Object {'"'+$_+'"'}
+$response=Join-Path $PSScriptRoot 'bin\PlayerArmor.rsp';Set-Content -LiteralPath $response -Value $arguments -Encoding utf8
+& $CompilerPath ('@'+$response)
+if($LASTEXITCODE -ne 0){throw 'Combined client/server compilation failed'}
+Write-Output $output

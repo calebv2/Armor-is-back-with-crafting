@@ -80,11 +80,9 @@ namespace PlayerArmorMod
             var lecternContent = lectern.GetComponent<AdditionalStaticContent>();
             if (lecternContent == null) throw new InvalidOperationException("Native lectern is missing its static art and collision");
             ArmorNative.Set(lecternContent, "needsToInstantiate", true);
-#if SERVER
             // World lecterns use baked map collision. A spawned lectern needs
             // its native book rest on the authoritative physics scene as well.
-            lecternContent.InstantiateContent(lectern.transform);
-#endif
+            if(Core.IsServer)lecternContent.InstantiateContent(lectern.transform);
             var entity = house.AddComponent<NetworkEntity>();
             var prefab = house.AddComponent<NetworkPrefab>();
             ArmorNative.Set(prefab, "entity", entity);
@@ -142,12 +140,12 @@ namespace PlayerArmorMod
                     int ground = LayerMask.NameToLayer("Ground");
                     if (ground < 0) throw new InvalidOperationException("Native Ground layer is unavailable");
                     foreach (var collider in house.GetComponentsInChildren<Collider>(true)) collider.gameObject.layer = ground;
-#if CLIENT
-                    ArmorStereo.Configure(house);
-#else
-                    foreach (var renderer in house.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);
-                    foreach (var filter in house.GetComponentsInChildren<MeshFilter>(true)) Object.DestroyImmediate(filter);
-#endif
+                    if(Core.IsServer)
+                    {
+                        foreach (var renderer in house.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);
+                        foreach (var filter in house.GetComponentsInChildren<MeshFilter>(true)) Object.DestroyImmediate(filter);
+                    }
+                    else ArmorStereo.Configure(house);
                     return house;
                 }
                 finally { bundle.Unload(false); }
