@@ -13,7 +13,7 @@ Download `PlayerArmor-0.9.8.zip` from the [0.9.8 release](https://github.com/cal
 
 Version 0.9.8 combines both roles into one DLL and includes the performance fix that removes repeating armor crafting diagnostic scene searches. It also includes the Woodland texture and dyed leather rendering improvements from 0.9.5 and 0.9.6.
 
-## :hammer_pick: Craftable at the Armor Workshop
+## Craftable at the Armor Workshop
 
 - **Iron** — 35% damage reduction · 500 base durability per piece · 14 base weight per set. Uses forged medium square metal plates and buckles.
 - **Hebios** — 35% damage reduction · 500 base durability per piece · 12 base weight per set. Uses forged medium square metal plates and leather straps. Dyed straps keep their color.
