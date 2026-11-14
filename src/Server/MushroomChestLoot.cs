@@ -10,6 +10,12 @@ namespace PlayerArmorMod
 {
     internal static class MushroomChestLoot
     {
+        const float HelmetChestChancePercent = 1f;
+        const string MushroomLootLog = "PLAYER_ARMOR_MUSHROOM_CHEST_LOOT";
+        const string NewsboyLootLog = "PLAYER_ARMOR_NEWSBOY_CHEST_LOOT";
+        const string BucketLootLog = "PLAYER_ARMOR_BUCKET_CHEST_LOOT";
+        const string CauldronLootLog = "PLAYER_ARMOR_CAULDRON_CHEST_LOOT";
+
         delegate bool SpawnOne(Item item, PickupDock dock, INetworkScene scene, SpawnData data, int quantity);
 
         static readonly Random random = new Random();
@@ -36,7 +42,10 @@ namespace PlayerArmorMod
                 foreach (var refill in refills)
                     harmony.Patch(refill, transpiler: new HarmonyMethod(patch));
                 assets = registry;
-                Core.Log("PLAYER_ARMOR_MUSHROOM_CHEST_LOOT_READY");
+                Core.Log(MushroomLootLog + "_READY");
+                Core.Log(NewsboyLootLog + "_READY");
+                Core.Log(BucketLootLog + "_READY");
+                Core.Log(CauldronLootLog + "_READY");
             }
             catch (Exception error)
             {
@@ -75,37 +84,60 @@ namespace PlayerArmorMod
         static bool FillWithBonus(SpawnData data, IEnumerable<PickupDock> targets, float incrementingFailChance)
         {
             bool filled = LootHelper.Spawn(data, targets, incrementingFailChance);
-            try
-            {
-                if (NetworkSceneManager.IsServer && assets != null && assets.Ready)
-                    return TryAddArmor(data, targets) || filled;
-            }
-            catch (Exception error)
-            {
-                Core.Error("PLAYER_ARMOR_MUSHROOM_CHEST_LOOT_FAILED " + error);
-            }
+            if (!NetworkSceneManager.IsServer || assets == null || !assets.Ready) return filled;
+
+            // Each bonus gets its own roll even if another roll already
+            // filled a dock. Mushroom keeps first pick of free space.
+            filled |= TryAddArmor(data, targets);
+            filled |= TryAddHelmet(data, targets, ArmorStyle.NewsboyHelmet, NewsboyLootLog);
+            filled |= TryAddHelmet(data, targets, ArmorStyle.BucketHelmet, BucketLootLog);
+            filled |= TryAddHelmet(data, targets, ArmorStyle.CauldronHelmet, CauldronLootLog);
             return filled;
+        }
+
+        internal static bool RollChance(float chancePercent, Random rng)
+        {
+            return chancePercent > 0 && rng.NextDouble() * 100 < chancePercent;
         }
 
         internal static int RollSlot(float chancePercent, Random rng)
         {
-            if (!(chancePercent > 0) || rng.NextDouble() * 100 >= chancePercent) return -1;
-            return rng.Next(ArmorCatalog.SlotCount);
+            return RollChance(chancePercent, rng) ? rng.Next(ArmorCatalog.SlotCount) : -1;
         }
 
         static bool TryAddArmor(SpawnData data, IEnumerable<PickupDock> targets)
         {
             int slot = RollSlot(ArmorSettings.Current.mushroomChestChancePercent, random);
-            if (slot < 0) return false;
-            var prefab = assets.MushroomPieces[slot];
-            var item = prefab.GetComponent<Pickup>().Item;
-            var dock = FindOpenChestDock(targets, item);
-            if (dock == null) return false;
-            // ATT spawns an actual network pickup, docks one immediately
-            // and destroys the new entity itself if the final dock rejects it.
-            if (!spawnOne(item, dock, NetworkSceneManager.Current, data, 1)) return false;
-            Core.Log("PLAYER_ARMOR_MUSHROOM_CHEST_LOOT dock=" + dock.Entity.Identifier + " piece=" + prefab.name);
-            return true;
+            return slot >= 0 && TryAddItem(data, targets, assets.MushroomPieces[slot], MushroomLootLog);
+        }
+
+        static bool TryAddHelmet(SpawnData data, IEnumerable<PickupDock> targets, ArmorStyle style, string logPrefix)
+        {
+            if (!RollChance(HelmetChestChancePercent, random)) return false;
+            var prefab = assets.StandaloneHelmets[ArmorCatalog.HelmetIndex(style)];
+            return TryAddItem(data, targets, prefab, logPrefix);
+        }
+
+        static bool TryAddItem(SpawnData data, IEnumerable<PickupDock> targets, NetworkPrefab prefab, string logPrefix)
+        {
+            try
+            {
+                if (prefab == null) return false;
+                var pickup = prefab.GetComponent<Pickup>();
+                if (pickup == null || pickup.Item == null) return false;
+                var item = pickup.Item;
+                var dock = FindOpenChestDock(targets, item);
+                if (dock == null) return false;
+                // ATT spawns a network pickup and destroys it if the dock rejects it.
+                if (!spawnOne(item, dock, NetworkSceneManager.Current, data, 1)) return false;
+                Core.Log(logPrefix + " dock=" + dock.Entity.Identifier + " piece=" + prefab.name);
+                return true;
+            }
+            catch (Exception error)
+            {
+                Core.Error(logPrefix + "_FAILED " + error);
+                return false;
+            }
         }
 
         static PickupDock FindOpenChestDock(IEnumerable<PickupDock> targets, Item item)

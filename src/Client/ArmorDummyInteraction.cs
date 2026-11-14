@@ -39,6 +39,14 @@ namespace PlayerArmorMod
         internal Vector3 GuideRight {get;private set;}
         internal bool GuideIsDummy {get{return dummy;}}
         internal int GuideSlot {get;private set;}
+        internal EquipmentCustomizationRoom DummyRoom => dummy && root != null && root.gameObject.activeInHierarchy ? room : null;
+        internal int DummyLayer {get;private set;}
+        internal Transform DummyPoint(int slot)
+        {
+            if (DummyRoom == null) return null;
+            Transform point = slots[slot].Point;
+            return point != null && point.IsChildOf(root) ? point : null;
+        }
         internal ArmorDummyInteraction(Func<string,bool> sender,Func<Transform,int,uint,Vector3,float?> surface=null)
         {
             if(sender==null)throw new ArgumentNullException("sender");send=sender;surfaceDistance=surface;
@@ -74,7 +82,10 @@ namespace PlayerArmorMod
             var newRoot=inDummy?current.Dummy.Root:actual.CustomizationHandler==null?null:actual.CustomizationHandler.RootBone;
             if(newRoot==null||!newRoot.gameObject.activeInHierarchy){Reset();return;}
             if(owner!=actual||root!=newRoot||session!=nonce||dummy!=inDummy)
-            {Reset();owner=actual;root=newRoot;session=nonce;room=inDummy?current:null;dummy=inDummy;ResolvePoints();}
+            {
+                Reset();owner=actual;root=newRoot;session=nonce;room=inDummy?current:null;dummy=inDummy;ResolvePoints();
+                if (inDummy) DummyLayer = PlayerArmorRigBinding.BodyLayer(room.Dummy);
+            }
             mask=equippedMask;
             if(now>=nextResolve){ResolvePoints();nextResolve=now+.25f;}
             hands[0]=owner.LeftController;hands[1]=owner.RightController;

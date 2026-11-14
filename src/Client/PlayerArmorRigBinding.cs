@@ -55,6 +55,11 @@ namespace PlayerArmorMod
         {
             internal PlayerCustomizationHandler Handler;
             internal CharacterDummy Dummy;
+            internal CosmeticPacker Packer;
+            internal Matrix4x4[] CosmeticBindPoses;
+            internal Dictionary<Transform, int> CosmeticBones;
+            internal readonly ArmorCosmeticShell[] CosmeticShells = new ArmorCosmeticShell[SlotCount];
+            internal readonly GameObject[] FittedVisuals = new GameObject[SlotCount];
             internal Transform Root;
             internal readonly VisualPart[] Parts = new VisualPart[SlotCount];
         }
@@ -65,6 +70,9 @@ namespace PlayerArmorMod
         private readonly TemplatePart[] hebiosTemplates = new TemplatePart[SlotCount];
         private readonly TemplatePart[] mushroomTemplates = new TemplatePart[SlotCount];
         private readonly TemplatePart[] wyrmTemplates = new TemplatePart[SlotCount];
+        private readonly TemplatePart[] forgeguardTemplates = new TemplatePart[SlotCount];
+        private readonly TemplatePart[] crystalWyrmTemplates = new TemplatePart[SlotCount];
+        private readonly TemplatePart[] standaloneHelmets = new TemplatePart[ArmorCatalog.StandaloneHelmets.Count];
         private readonly Dictionary<PlayerCustomizationHandler, HandlerBinding> handlers =
             new Dictionary<PlayerCustomizationHandler, HandlerBinding>();
         private readonly Dictionary<Material, Material> nonEmissiveCopies = new Dictionary<Material, Material>();
@@ -72,7 +80,6 @@ namespace PlayerArmorMod
         private readonly List<PlayerCustomizationHandler> stale = new List<PlayerCustomizationHandler>();
         private readonly HashSet<PlayerCustomizationHandler> desired = new HashSet<PlayerCustomizationHandler>();
         private readonly Action<string> logger;
-        private readonly ArmorCosmeticCoverage cosmeticCoverage;
         private PlayerCharacter player;
         private object networkPlayer;
         private uint mask;
@@ -82,11 +89,11 @@ namespace PlayerArmorMod
         private float nextReconcileAt;
         private bool disposed;
 
-        internal PlayerArmorRigBinding(GameObject template, Action<string> log = null, GameObject wyrmTemplate = null)
+        internal PlayerArmorRigBinding(GameObject template, Action<string> log = null, GameObject wyrmTemplate = null,
+            GameObject crystalWyrmTemplate = null, GameObject standaloneHelmetsTemplate = null, GameObject forgeguardTemplate = null)
         {
             if (template == null) throw new ArgumentNullException("template");
             logger = log;
-            cosmeticCoverage = new ArmorCosmeticCoverage(log);
             Transform[] source = template.GetComponentsInChildren<Transform>(true);
             Transform leather = template.transform.Find("Leather");
             Transform pickups = template.transform.Find("Pickups");
@@ -97,7 +104,10 @@ namespace PlayerArmorMod
                 templates[slot] = ReadTemplate(part, SlotNames[slot]);
                 Transform leatherPart = leather == null ? null : leather.Find("Armor_" + SlotNames[slot]);
                 if (leatherPart != null) leatherTemplates[slot] = ReadTemplate(leatherPart, "Leather/" + SlotNames[slot]);
-                Transform woodlandPart=template.transform.Find("Woodland/Armor_"+SlotNames[slot]);
+                string woodlandPath="Woodland/Armor_"+SlotNames[slot];
+                Transform woodlandPart=slot==(int)ArmorSlot.Head&&standaloneHelmetsTemplate!=null
+                    ? standaloneHelmetsTemplate.transform.Find(woodlandPath)
+                    : template.transform.Find(woodlandPath);
                 Transform hebiosPart=template.transform.Find("Hebios/Armor_"+SlotNames[slot]);
                 Transform mushroomPart=template.transform.Find("Mushroom/Armor_"+SlotNames[slot]);
                 if(woodlandPart!=null)woodlandTemplates[slot]=ReadTemplate(woodlandPart,"Woodland/"+SlotNames[slot]);
@@ -105,7 +115,17 @@ namespace PlayerArmorMod
                 if(mushroomPart!=null)mushroomTemplates[slot]=ReadTemplate(mushroomPart,"Mushroom/"+SlotNames[slot]);
                 var wyrmPart=wyrmTemplate==null?null:wyrmTemplate.transform.Find("Wyrm/Armor_"+SlotNames[slot]);
                 if(wyrmPart!=null)wyrmTemplates[slot]=ReadTemplate(wyrmPart,"Wyrm/"+SlotNames[slot]);
+                var crystalWyrmPart = crystalWyrmTemplate == null ? null : crystalWyrmTemplate.transform.Find("Crystal/Armor_" + SlotNames[slot]);
+                if (crystalWyrmPart != null) crystalWyrmTemplates[slot] = ReadTemplate(crystalWyrmPart, "Crystal/" + SlotNames[slot]);
+                var forgeguardPart=forgeguardTemplate==null?null:forgeguardTemplate.transform.Find("Forgeguard/Armor_"+SlotNames[slot]);
+                if(forgeguardPart!=null)forgeguardTemplates[slot]=ReadTemplate(forgeguardPart,"Forgeguard/"+SlotNames[slot]);
             }
+            if (standaloneHelmetsTemplate != null)
+                foreach (var definition in ArmorCatalog.StandaloneHelmets)
+                {
+                    var part = standaloneHelmetsTemplate.transform.Find(definition.ArtRootName);
+                    if (part != null) standaloneHelmets[ArmorCatalog.HelmetIndex(definition.Style)] = ReadTemplate(part, definition.ArtRootName);
+                }
         }
 
         private static TemplatePart ReadTemplate(Transform part, string name)
@@ -154,7 +174,6 @@ namespace PlayerArmorMod
             {
                 nextReconcileAt = Time.unscaledTime + .35f;
                 Reconcile();
-                cosmeticCoverage.Update(actual.NetworkPlayer.Customization,mask,ArmorSettings.Current.cosmeticCompatibilityEnabled);
             }
             foreach (HandlerBinding binding in handlers.Values) UpdatePresentation(binding);
         }
@@ -195,7 +214,6 @@ namespace PlayerArmorMod
             if (disposed || player == null) return;
             nextReconcileAt = 0;
             Reconcile();
-            cosmeticCoverage.Update(player.NetworkPlayer.Customization,mask,ArmorSettings.Current.cosmeticCompatibilityEnabled);
             foreach (HandlerBinding binding in handlers.Values) UpdatePresentation(binding);
         }
 
@@ -269,6 +287,7 @@ namespace PlayerArmorMod
             {
                 if (binding.Handler == null || binding.Handler.IsDestroyed || binding.Dummy == null || binding.Root == null) return false;
                 if (binding.Handler.CharacterDummy != binding.Dummy || binding.Handler.RootBone != binding.Root) return false;
+                if (binding.Dummy.CosmeticPacker != binding.Packer) return false;
                 foreach (VisualPart part in binding.Parts)
                     if (part == null || part.Bone == null || part.Socket == null || !part.Bone.IsChildOf(binding.Root)) return false;
                 return true;
@@ -279,6 +298,7 @@ namespace PlayerArmorMod
         private HandlerBinding CreateBinding(PlayerCustomizationHandler handler)
         {
             var binding = new HandlerBinding { Handler = handler, Dummy = handler.CharacterDummy, Root = handler.RootBone };
+            binding.Packer = binding.Dummy.CosmeticPacker;
             var bones = new Dictionary<string, Transform>(StringComparer.Ordinal);
             foreach (Transform bone in binding.Root.GetComponentsInChildren<Transform>(true))
                 if (!bone.name.StartsWith("PlayerArmor.", StringComparison.Ordinal) && !OriginalArmorArt.IsSourceBone(bone) && !bones.ContainsKey(bone.name)) bones.Add(bone.name, bone);
@@ -315,6 +335,7 @@ namespace PlayerArmorMod
             if (!StillMatches(binding)) return;
             int layer = BodyLayer(binding.Dummy);
             bool firstPerson = binding.Handler.IsFirstPerson;
+            uint visibleArmor = 0;
             for (int slot = 0; slot < SlotCount; slot++)
             {
                 VisualPart part = binding.Parts[slot];
@@ -323,6 +344,7 @@ namespace PlayerArmorMod
                 if (worn && part.Visual != null && part.Style != style) ReleaseVisual(part);
                 if (worn && part.Visual == null) CreateVisual(binding, part, slot, layer, style);
                 if (part.Visual == null) continue;
+                if (worn) visibleArmor |= 1u << slot;
                 if(part.OriginalFrames!=null)foreach(var frame in part.OriginalFrames)frame.Update();
                 if (part.Visual.activeSelf != worn) part.Visual.SetActive(worn);
                 if(part.OriginalFrames!=null)foreach(var frame in part.OriginalFrames)frame.SetVisible(worn);
@@ -342,6 +364,35 @@ namespace PlayerArmorMod
                     Warn("PLAYER_ARMOR_COLOR_FALLBACK style="+style+" slot="+SlotNames[slot]+" pickup="+pickupIds[slot]+" layout="+part.MaterialLayout+" materials="+part.MaterialHashes.Length+" reason="+error.GetType().Name+": "+error.Message);
                 }
             }
+            UpdateCosmeticFit(binding, ArmorSettings.Current.cosmeticCompatibilityEnabled ? visibleArmor : 0);
+        }
+
+        private void UpdateCosmeticFit(HandlerBinding binding, uint visibleArmor)
+        {
+            if (visibleArmor != 0 && binding.CosmeticBones == null)
+            {
+                binding.CosmeticBindPoses = ArmorCosmeticCoverage.BindPoses(binding.Packer);
+                binding.CosmeticBones = ArmorCosmeticCoverage.BoneIndices(binding.Dummy, binding.CosmeticBindPoses?.Length ?? 0);
+            }
+            if (binding.CosmeticBones != null)
+                for (int i = 0; i < SlotCount; i++)
+                {
+                    var part = binding.Parts[i];
+                    if ((visibleArmor & (1u << i)) == 0 || part.Visual == binding.FittedVisuals[i]) continue;
+                    binding.FittedVisuals[i] = part.Visual;
+                    binding.CosmeticShells[i] = null;
+                    try
+                    {
+                        binding.CosmeticShells[i] = ArmorCosmeticShell.Build((ArmorSlot)i, part.Bone, part.Renderers,
+                            binding.CosmeticBones, binding.CosmeticBindPoses);
+                    }
+                    catch (Exception error)
+                    {
+                        Warn("Player Armor could not fit cosmetics for " + part.Style + " " + SlotNames[i] + ": " +
+                            error.GetBaseException().Message);
+                    }
+                }
+            ArmorCosmeticCoverage.Set(binding.Packer, visibleArmor, binding.CosmeticShells);
         }
 
         private void CreateVisual(HandlerBinding binding, VisualPart part, int slot, int layer, ArmorStyle style)
@@ -355,7 +406,12 @@ namespace PlayerArmorMod
                 case ArmorStyle.Hebios: template=hebiosTemplates[slot]; break;
                 case ArmorStyle.Mushroom: template=mushroomTemplates[slot]; break;
                 case ArmorStyle.Wyrm: template=wyrmTemplates[slot]; break;
-                default: template=null; break;
+                case ArmorStyle.CrystalWyrm: template=crystalWyrmTemplates[slot]; break;
+                case ArmorStyle.Forgeguard: template=forgeguardTemplates[slot]; break;
+                default:
+                    template=slot==(int)ArmorSlot.Head&&ArmorCatalog.IsStandaloneHelmet(style)
+                        ? standaloneHelmets[ArmorCatalog.HelmetIndex(style)] : null;
+                    break;
             }
             if (template == null)
             {
@@ -400,10 +456,14 @@ namespace PlayerArmorMod
                     if (replaced) renderer.sharedMaterials = materials;
                 }
                 part.OriginalFrames=OriginalArmorArt.Bind(instance,binding.Root,true);
+                if (slot == (int)ArmorSlot.LeftForearm || slot == (int)ArmorSlot.RightForearm)
+                    ArmorBracerFit.Apply(instance, part.OriginalFrames, style, slot == (int)ArmorSlot.LeftForearm);
                 part.Renderers = renderers; part.OriginalShadows = original; part.Visual = instance; part.Leather = style==ArmorStyle.Leather;part.Style=style;
             }
             catch (Exception error)
             {
+                if(part.OriginalFrames!=null)foreach(var frame in part.OriginalFrames)frame.Dispose();
+                part.OriginalFrames=null;
                 if (instance != null) { instance.SetActive(false); UnityEngine.Object.Destroy(instance); }
                 Warn("Could not show " + SlotNames[slot] + " on player: " + error.GetBaseException().Message);
             }
@@ -461,7 +521,7 @@ namespace PlayerArmorMod
             copy.DisableKeyword("_EMISSION"); nonEmissiveCopies[source] = copy; return copy;
         }
 
-        private static int BodyLayer(CharacterDummy dummy)
+        internal static int BodyLayer(CharacterDummy dummy)
         {
             foreach (Renderer renderer in dummy.MainRenderers) if (renderer != null) return renderer.gameObject.layer;
             foreach (Renderer renderer in dummy.Renderers) if (renderer != null) return renderer.gameObject.layer;
@@ -475,6 +535,7 @@ namespace PlayerArmorMod
         }
         private static void Release(HandlerBinding binding)
         {
+            ArmorCosmeticCoverage.Set(binding.Packer, 0, null);
             foreach (VisualPart part in binding.Parts)
                 if (part != null)
                 {
@@ -496,7 +557,6 @@ namespace PlayerArmorMod
         }
         private void ClearBindings()
         {
-            cosmeticCoverage.Clear();
             foreach (HandlerBinding binding in handlers.Values) Release(binding);
             handlers.Clear(); desired.Clear(); stale.Clear();
         }
@@ -504,7 +564,6 @@ namespace PlayerArmorMod
         {
             if (disposed) return;
             disposed = true; ClearBindings(); player = null; networkPlayer = null; mask = appliedLeatherMask = 0;appliedStyleBits=0;
-            cosmeticCoverage.Dispose();
             foreach (Material material in nonEmissiveCopies.Values) if (material != null) UnityEngine.Object.Destroy(material);
             nonEmissiveCopies.Clear(); warnings.Clear();
         }

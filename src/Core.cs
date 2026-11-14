@@ -12,6 +12,11 @@ namespace PlayerArmorMod
         ArmorClient client;
         public override void OnInitializeMelon()
         {
+#if PLAYER_ARMOR_CLIENT
+            if(IsServer){LoggerInstance.Warning("Use PlayerArmor.Server.dll or the Combined build on a server.");return;}
+#elif PLAYER_ARMOR_SERVER
+            if(!IsServer){LoggerInstance.Warning("Use PlayerArmor.Client.dll or the Combined build on a PC client.");return;}
+#endif
             Instance=this;
             if(IsServer)ArmorSettings.InitializeServer(MelonLoader.Utils.MelonEnvironment.UserDataDirectory);
             ArmorDurability.Install(HarmonyInstance);ArmorCraftRecord.Install(HarmonyInstance);ArmorCrafting.Install(HarmonyInstance);
@@ -22,6 +27,7 @@ namespace PlayerArmorMod
             {
                 MushroomChestLoot.Install(HarmonyInstance, Assets);
                 WyrmArmorLoot.Install(HarmonyInstance, Assets);
+                SpriggullHelmetLoot.Install(HarmonyInstance, Assets);
                 ArmorProtection.Install(HarmonyInstance);
                 server=new ArmorServer(Assets);server.Install(HarmonyInstance);
             }
@@ -29,11 +35,12 @@ namespace PlayerArmorMod
             {
                 client=new ArmorClient(Assets);client.Install(HarmonyInstance);
             }
-            Log("Player Armor 0.9.8 initialized as "+(IsServer?"server":"client")+". Armor recipes use the dedicated Armor Workshop.");
+            Log("Player Armor 0.10.24 initialized as "+(IsServer?"server":"client")+". Armor recipes use the dedicated Armor Workshop.");
         }
         public override void OnLateInitializeMelon(){if(Assets!=null)Assets.Preload();}
         public override void OnUpdate()
         {
+            if(Instance!=this)return;
             ArmorCrafting.Update();
             if(server!=null){ArmorSettings.Poll(Time.unscaledTime);server.Update();}
             if(client!=null)client.Update();
@@ -44,10 +51,12 @@ namespace PlayerArmorMod
         }
         public override void OnDeinitializeMelon()
         {
+            if(Instance!=this)return;
             if(IsServer)
             {
                 MushroomChestLoot.Dispose();
                 WyrmArmorLoot.Dispose();
+                SpriggullHelmetLoot.Dispose();
                 if(server!=null)server.Dispose();ArmorProtection.Dispose();
             }
             else

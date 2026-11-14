@@ -10,6 +10,8 @@ namespace PlayerArmorMod
     {
         public string prefabName;
         public float damageReduction,maximumDurability,wearPerAbsorbedDamage;
+        [JsonProperty(NullValueHandling=NullValueHandling.Ignore)] public float? projectileDamageReduction;
+        [JsonProperty(DefaultValueHandling=DefaultValueHandling.Ignore)] public float movementPenalty;
     }
     public sealed class ArmorWoodMaterialSettings
     {
@@ -33,6 +35,7 @@ namespace PlayerArmorMod
     }
     internal static class ArmorConstructionPlan
     {
+        internal const int WoodlandBucketLayout=4;
         internal static int PrimaryCount(ArmorStyle style,ArmorSlot slot)
         {
             if(slot==ArmorSlot.Hips)return 4;
@@ -51,16 +54,18 @@ namespace PlayerArmorMod
         // cured shell regions. Food mushrooms are not native workbench parts.
         {return style==ArmorStyle.Woodland?47118u:ArmorCatalog.UsesMetalMaterials(style)?50988u:47760u;}
         internal static uint FastenerSource(ArmorStyle style)
-        {return style==ArmorStyle.Woodland?43836u:style==ArmorStyle.Metal?62594u:63204u;}
+        {return style==ArmorStyle.Woodland?43836u:(style==ArmorStyle.Metal||style==ArmorStyle.Forgeguard)?62594u:63204u;}
         internal static uint Layout(ArmorRecipeSettings recipe)
         {
             int value=recipe.layoutVersion??1;
-            if(value!=1&&value!=2&&value!=3)throw new InvalidDataException("Unsupported armor recipe layoutVersion");
+            if(value!=1&&value!=2&&value!=3&&
+                (value!=WoodlandBucketLayout||recipe.prefabName!=ArmorCatalog.WoodlandPieces[0].PrefabName))
+                throw new InvalidDataException("Unsupported armor recipe layoutVersion");
             return (uint)value;
         }
         // Jig staging changes the project, not the saved material-region format.
         internal static uint MaterialLayout(ArmorRecipeSettings recipe)
-        {return Layout(recipe)==3?2u:Layout(recipe);}
+        {return Math.Min(2u,Layout(recipe));}
         internal static void Validate(ArmorRecipeSettings recipe)
         {
             if(Layout(recipe)<2)return;
@@ -85,6 +90,10 @@ namespace PlayerArmorMod
     internal static class ArmorSettings
     {
         internal const int MaximumJsonBytes=65536;
+        const int WireSchemaVersion=1;
+        const int ServerSchemaVersion=3;
+        const float CrystalWyrmDamageReduction=.30f;
+        const float CrystalWyrmDurability=250f;
         internal static ArmorConfiguration Current {get;private set;}=Defaults();
         internal static uint Revision {get;private set;}=1;
         internal static bool RemoteReady {get;private set;}
@@ -105,13 +114,27 @@ namespace PlayerArmorMod
         // for disassembly and saved projects. This path never advertises a recipe.
         internal static ArmorRecipeSettings ConstructionFor(ArmorPieceDefinition piece)
         {return ArmorCatalog.IsChestOnly(piece.Style)?DefaultConstruction(piece):GetRecipe(piece.PrefabName);}
-        internal static string Serialize()
+        internal static string Serialize(ArmorStyle latestStyle=ArmorCatalog.LatestStyle)
         {
             // The chest roll and wood balance are evaluated on the server.
             // Older clients reject unknown equipment settings fields.
             var wire=Newtonsoft.Json.Linq.JObject.FromObject(Current);
+            wire[nameof(ArmorConfiguration.schemaVersion)]=WireSchemaVersion;
             wire.Remove(nameof(ArmorConfiguration.mushroomChestChancePercent));
             wire.Remove(nameof(ArmorConfiguration.woodMaterials));
+            if(latestStyle<ArmorCatalog.LatestStyle)
+            {
+                var pieces=(Newtonsoft.Json.Linq.JArray)wire[nameof(ArmorConfiguration.pieces)];
+                var unsupported=new HashSet<string>(ArmorCatalog.AllPieces.Where(p=>p.Style>latestStyle).Select(p=>p.PrefabName),StringComparer.Ordinal);
+                foreach(var piece in pieces.Where(p=>unsupported.Contains((string)p[nameof(ArmorPieceSettings.prefabName)])).ToArray())
+                    piece.Remove();
+                var recipes=(Newtonsoft.Json.Linq.JArray)wire[nameof(ArmorConfiguration.recipes)];
+                foreach(var recipe in recipes.Where(p=>unsupported.Contains((string)p[nameof(ArmorRecipeSettings.prefabName)])).ToArray())
+                    recipe.Remove();
+                if(latestStyle<ArmorStyle.Forgeguard)
+                    foreach(Newtonsoft.Json.Linq.JObject piece in pieces)
+                    {piece.Remove(nameof(ArmorPieceSettings.projectileDamageReduction));piece.Remove(nameof(ArmorPieceSettings.movementPenalty));}
+            }
             return wire.ToString(Formatting.None);
         }
         internal static void InitializeServer(string userData)
@@ -131,6 +154,8 @@ namespace PlayerArmorMod
                 string source=File.ReadAllText(ConfigurationPath);
                 if(!force&&source==lastAcceptedSource){lastError=null;return;}
                 var accepted=Parse(source);
+                if(accepted.schemaVersion<ServerSchemaVersion&&!UpgradeServerConfiguration(accepted,ref source))
+                    return;
                 if(activeRecipes!=null&&JsonConvert.SerializeObject(accepted.recipes)!=JsonConvert.SerializeObject(activeRecipes))
                 {accepted.recipes=activeRecipes;Core.Log("PLAYER_ARMOR_RECIPES_PENDING_RESTART recipes remain unchanged until restart; live balance and cosmetic settings accepted");}
                 Current=accepted;lastAcceptedSource=source;Revision++;lastError=null;
@@ -138,6 +163,48 @@ namespace PlayerArmorMod
             }
             catch(Exception error)
             {string message=error.GetBaseException().Message;if(message!=lastError){lastError=message;Core.Error("PLAYER_ARMOR_CONFIG_REJECTED retaining previous settings: "+message);}}
+        }
+        static bool UpgradeServerConfiguration(ArmorConfiguration accepted,ref string source)
+        {
+            var original=Newtonsoft.Json.Linq.JObject.Parse(source);
+            var existing=new HashSet<string>((original["pieces"] as Newtonsoft.Json.Linq.JArray ?? new Newtonsoft.Json.Linq.JArray())
+                .Where(p=>p!=null).Select(p=>(string)p["prefabName"]).Where(n=>n!=null),StringComparer.Ordinal);
+            foreach(var piece in accepted.pieces)
+            {
+                if(!existing.Contains(piece.prefabName))continue;
+                if(accepted.schemaVersion==WireSchemaVersion&&piece.prefabName.StartsWith(ArmorCatalog.CrystalWyrmPrefabPrefix,StringComparison.Ordinal)
+                    &&piece.damageReduction==.18f&&piece.maximumDurability==250f)
+                {piece.damageReduction=CrystalWyrmDamageReduction;piece.maximumDurability=500f;}
+                piece.maximumDurability=Math.Max(1f,piece.maximumDurability*.5f);
+            }
+            accepted.schemaVersion=ServerSchemaVersion;
+            var updated=JsonConvert.SerializeObject(accepted,Formatting.Indented);
+            if(System.Text.Encoding.UTF8.GetByteCount(updated)>MaximumJsonBytes)
+                updated=JsonConvert.SerializeObject(accepted,Formatting.None);
+            if(System.Text.Encoding.UTF8.GetByteCount(updated)>MaximumJsonBytes)
+            {
+                Core.Error("PLAYER_ARMOR_CONFIG_UPGRADE_NOT_SAVED updated settings exceed 64 KiB; applied in memory");
+                return true;
+            }
+            var temporary=ConfigurationPath+"."+Guid.NewGuid().ToString("N")+".tmp";
+            try
+            {
+                File.WriteAllText(temporary,updated);
+                if(File.ReadAllText(ConfigurationPath)!=source)return false;
+                File.Replace(temporary,ConfigurationPath,ConfigurationPath+".pre-durability-halving.bak");
+                source=updated;
+            }
+            catch(Exception error) when(error is IOException||error is UnauthorizedAccessException)
+            {
+                Core.Error("PLAYER_ARMOR_CONFIG_UPGRADE_NOT_SAVED updated settings applied in memory: "+error.Message);
+            }
+            finally
+            {
+                try{File.Delete(temporary);}
+                catch(Exception error) when(error is IOException||error is UnauthorizedAccessException)
+                {Core.Error("PLAYER_ARMOR_CONFIG_TEMP_CLEANUP_FAILED "+error.Message);}
+            }
+            return true;
         }
         internal static void ApplyRemote(string json)
         {
@@ -152,7 +219,8 @@ namespace PlayerArmorMod
         {
             if(string.IsNullOrWhiteSpace(json)||System.Text.Encoding.UTF8.GetByteCount(json)>MaximumJsonBytes)throw new InvalidDataException("Invalid armor settings size");
             var value=JsonConvert.DeserializeObject<ArmorConfiguration>(json,new JsonSerializerSettings{MissingMemberHandling=MissingMemberHandling.Error,MaxDepth=12});
-            if(value==null||value.schemaVersion!=1)throw new InvalidDataException("Expected armor settings schemaVersion 1");
+            if(value==null||(value.schemaVersion!=WireSchemaVersion&&value.schemaVersion!=2&&value.schemaVersion!=ServerSchemaVersion))
+                throw new InvalidDataException("Expected armor settings schemaVersion 1, 2 or 3");
             if(!Finite(value.mushroomChestChancePercent)||value.mushroomChestChancePercent<0||value.mushroomChestChancePercent>100)
                 throw new InvalidDataException("mushroomChestChancePercent must be between 0 and 100");
             var defaults=Defaults();if(value.pieces==null)value.pieces=defaults.pieces;if(value.recipes==null)value.recipes=defaults.recipes;
@@ -171,8 +239,9 @@ namespace PlayerArmorMod
             // including custom costs/material rules. Only missing NEW families
             // receive defaults; missing original entries remain an error.
             var addedNames=new HashSet<string>(ArmorCatalog.ExpansionPieces.Select(p=>p.PrefabName),StringComparer.Ordinal);
-            var retiredNames=new HashSet<string>(ArmorCatalog.AllPieces.Where(p=>ArmorCatalog.IsLootOnly(p.Style)).Select(p=>p.PrefabName),StringComparer.Ordinal);
-            value.recipes=value.recipes.Where(r=>r==null||!retiredNames.Contains(r.prefabName)).ToArray();
+            var retiredNames=new HashSet<string>(ArmorCatalog.AllPieces.Where(p=>!ArmorCatalog.IsCraftable(p.Style)).Select(p=>p.PrefabName),StringComparer.Ordinal);
+            value.pieces=value.pieces.Where(p=>p==null||!ArmorCatalog.IsRetiredHelmetPrefab(p.prefabName)).ToArray();
+            value.recipes=value.recipes.Where(r=>r==null||(!retiredNames.Contains(r.prefabName)&&!ArmorCatalog.IsRetiredHelmetPrefab(r.prefabName))).ToArray();
             var presentPieces=new HashSet<string>(value.pieces.Where(p=>p!=null).Select(p=>p.prefabName),StringComparer.Ordinal);
             var presentRecipes=new HashSet<string>(value.recipes.Where(p=>p!=null).Select(p=>p.prefabName),StringComparer.Ordinal);
             value.pieces=value.pieces.Concat(defaults.pieces.Where(p=>addedNames.Contains(p.prefabName)&&!presentPieces.Contains(p.prefabName))).ToArray();
@@ -185,6 +254,8 @@ namespace PlayerArmorMod
                 if(p==null||p.prefabName==null||!names.Contains(p.prefabName)||!seen.Add(p.prefabName))throw new InvalidDataException("Unknown or duplicate armor piece");
                 if(!Finite(p.damageReduction)||p.damageReduction<0||p.damageReduction>.9f||!Finite(p.maximumDurability)||p.maximumDurability<1||p.maximumDurability>1000000
                     ||!Finite(p.wearPerAbsorbedDamage)||p.wearPerAbsorbedDamage<0||p.wearPerAbsorbedDamage>1000)throw new InvalidDataException("Invalid balance values for "+p.prefabName);
+                if((p.projectileDamageReduction.HasValue&&(!Finite(p.projectileDamageReduction.Value)||p.projectileDamageReduction.Value<0||p.projectileDamageReduction.Value>.9f))
+                    ||!Finite(p.movementPenalty)||p.movementPenalty<0||p.movementPenalty>.5f)throw new InvalidDataException("Invalid projectile protection or movement penalty for "+p.prefabName);
             }
             seen.Clear();
             foreach(var r in value.recipes)
@@ -203,7 +274,7 @@ namespace PlayerArmorMod
         {if(string.IsNullOrEmpty(value)||value.Length>64)return false;foreach(char c in value)if(c>127||(!char.IsLetterOrDigit(c)&&c!='_'))return false;return true;}
         internal static ArmorConfiguration Defaults()
         {
-            var value=new ArmorConfiguration();var pieces=new List<ArmorPieceSettings>();var recipes=new List<ArmorRecipeSettings>();
+            var value=new ArmorConfiguration{schemaVersion=ServerSchemaVersion};var pieces=new List<ArmorPieceSettings>();var recipes=new List<ArmorRecipeSettings>();
             value.woodMaterials=new[]{
                 new ArmorWoodMaterialSettings{material="Birch",durabilityMultiplier=.8f,damageReductionMultiplier=.8f},
                 new ArmorWoodMaterialSettings{material="Oak"},
@@ -214,8 +285,14 @@ namespace PlayerArmorMod
             foreach(var p in ArmorCatalog.AllPieces)
             {
                 bool metal=ArmorCatalog.UsesMetalMaterials(p.Style);
-                pieces.Add(new ArmorPieceSettings{prefabName=p.PrefabName,damageReduction=metal?.35f:.18f,maximumDurability=metal?500:250,wearPerAbsorbedDamage=1});
-                if(!ArmorCatalog.IsLootOnly(p.Style))recipes.Add(DefaultConstruction(p));
+                bool crystal=p.Style==ArmorStyle.CrystalWyrm;
+                bool forgeguard=p.Style==ArmorStyle.Forgeguard;
+                bool cosmetic=p.Style==ArmorStyle.NewsboyHelmet;
+                pieces.Add(new ArmorPieceSettings{prefabName=p.PrefabName,
+                    damageReduction=forgeguard?.65f:cosmetic?0f:crystal?CrystalWyrmDamageReduction:metal?.35f:.18f,
+                    projectileDamageReduction=forgeguard?(float?).75f:null,movementPenalty=forgeguard?ForgeguardPolicy.Penalty(p.Slot):0,
+                    maximumDurability=forgeguard?500:crystal?CrystalWyrmDurability:metal?250:125,wearPerAbsorbedDamage=1});
+                if(ArmorCatalog.IsCraftable(p.Style))recipes.Add(DefaultConstruction(p));
             }
             value.pieces=pieces.ToArray();value.recipes=recipes.ToArray();return value;
         }

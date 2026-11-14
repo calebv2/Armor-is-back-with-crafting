@@ -46,7 +46,7 @@ namespace PlayerArmorMod
         static bool IsWood(Material material)
         {
             Texture texture = material == null ? null : material.mainTexture;
-            return texture != null && texture.name == AuthoredWoodTexture;
+            return texture != null && (texture.name == AuthoredWoodTexture || texture.name == "WoodlandBucketWood");
         }
 
         static void Configure(Material surface, Material wood)

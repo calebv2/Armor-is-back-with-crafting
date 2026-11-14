@@ -75,7 +75,7 @@ namespace PlayerArmorMod
             {'Y',"10001/10001/01010/00100/00100/00100/00100"},{'Z',"11111/00001/00010/00100/01000/10000/11111"}
         };
         internal static string Header(ArmorStyle style)
-        {switch(style){case ArmorStyle.Metal:return "METAL ARMOR";case ArmorStyle.Leather:return "LEATHER ARMOR";case ArmorStyle.Woodland:return "WOODLAND ARMOR";case ArmorStyle.Hebios:return "HEBIOS ARMOR";case ArmorStyle.Mushroom:return "MUSHROOM ARMOR";default:throw new ArgumentOutOfRangeException("style");}}
+        {switch(style){case ArmorStyle.Metal:return "METAL ARMOR";case ArmorStyle.Leather:return "LEATHER ARMOR";case ArmorStyle.Woodland:return "WOODLAND ARMOR";case ArmorStyle.Hebios:return "HEBIOS ARMOR";case ArmorStyle.Mushroom:return "MUSHROOM ARMOR";case ArmorStyle.Forgeguard:return "FORGEGUARD";default:throw new ArgumentOutOfRangeException("style");}}
         internal static string Part(ArmorSlot slot)
         {
             switch(slot)
@@ -86,12 +86,14 @@ namespace PlayerArmorMod
                 case ArmorSlot.Hips:return "TASSETS";default:throw new ArgumentOutOfRangeException("slot");
             }
         }
-        internal static string FullTitle(ArmorPieceDefinition piece){return Header(piece.Style)+" - "+Part(piece.Slot);}
+        static string Part(ArmorPieceDefinition piece)
+        {return piece.Style==ArmorStyle.Forgeguard?Part(piece.Slot).Replace("BRACER","GAUNTLET"):Part(piece.Slot);}
+        internal static string FullTitle(ArmorPieceDefinition piece){return Header(piece.Style)+" - "+Part(piece);}
         internal static Color32[] Pixels(ArmorPieceDefinition piece)
         {
             var pixels=new Color32[Size*Size];const int mainScale=2,styleScale=1,gap=3;
             int mainBottom=(Size-(7*mainScale+gap+7*styleScale))/2;
-            Draw(pixels,Part(piece.Slot),mainScale,mainBottom);
+            Draw(pixels,Part(piece),mainScale,mainBottom);
             Draw(pixels,Header(piece.Style),styleScale,mainBottom+7*mainScale+gap);return pixels;
         }
         static void Draw(Color32[] pixels,string text,int scale,int bottom)

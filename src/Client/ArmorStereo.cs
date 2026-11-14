@@ -21,8 +21,9 @@ namespace PlayerArmorMod
         internal static void Configure(GameObject template)
         {
             foreach(var renderer in template.GetComponentsInChildren<Renderer>(true))foreach(var material in renderer.sharedMaterials)
-                if(material!=null&&material.shader!=null&&(material.shader.name=="PlayerArmor/Lit"||material.shader.name=="PlayerArmor/WyrmLit"||material.shader.name=="PlayerArmor/WorkshopLit"))
-                Register(material);
+                if(material!=null&&material.shader!=null&&(material.shader.name=="PlayerArmor/Lit"||material.shader.name=="PlayerArmor/WyrmLit"||
+                    material.shader.name=="PlayerArmor/CrystalWyrmShell"||material.shader.name=="PlayerArmor/WorkshopLit"))
+                    Register(material);
             if(!installed){Camera.onPreCull+=Before;Camera.onPostRender+=After;installed=true;}
         }
         static void Before(Camera camera)

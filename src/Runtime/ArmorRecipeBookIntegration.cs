@@ -29,12 +29,14 @@ namespace PlayerArmorMod
             internal UnityEngine.Object[] Pages;
             internal int[] Initial;
         }
-        static readonly HashSet<GenericCraftingRecipe> approved=new HashSet<GenericCraftingRecipe>(new References<GenericCraftingRecipe>());
+        static readonly Dictionary<GenericCraftingRecipe,ArmorPieceDefinition> approved=
+            new Dictionary<GenericCraftingRecipe,ArmorPieceDefinition>(new References<GenericCraftingRecipe>());
         static readonly HashSet<PageCollection> tracked=new HashSet<PageCollection>(new References<PageCollection>());
         static readonly HashSet<Book> initialized=new HashSet<Book>(new References<Book>());
         static readonly FieldInfo pageBases=ArmorNative.Field(typeof(PageCollection),"pageBases"),initialPages=ArmorNative.Field(typeof(PageCollection),"initialPages");
         static readonly FieldInfo bookPages=ArmorNative.Field(typeof(Book),"bookPages");
         static readonly MethodInfo checkGlobalPage=AccessTools.Method(typeof(Book),"CheckGlobalPage");
+        static readonly MethodInfo getCurrentPage=AccessTools.Method(typeof(Book),"GetCurrentPage");
         internal static PageCollection WorkshopCollection { get; private set; }
 
         internal static void CreateWorkshopCollection()
@@ -64,45 +66,70 @@ namespace PlayerArmorMod
                 postfix:new HarmonyMethod(typeof(ArmorRecipeBookIntegration),"AfterInitializeBook"));
             harmony.Patch(AccessTools.Method(typeof(Book),"OnDestroy"),
                 postfix:new HarmonyMethod(typeof(ArmorRecipeBookIntegration),"AfterDestroyBook"));
+            harmony.Patch(AccessTools.Method(typeof(Book),"Open"),
+                prefix:new HarmonyMethod(typeof(ArmorRecipeBookIntegration),nameof(BeforeOpen)));
+            harmony.Patch(AccessTools.Method(typeof(Book),"GetPageNumber"),
+                prefix:new HarmonyMethod(typeof(ArmorRecipeBookIntegration),nameof(NumberLearnedPage)));
         }
-        static List<CollectionPlan> RegistrationPlans(GenericCraftingRecipe recipe)
+
+        static GenericCraftingRecipe[] InBookOrder(IEnumerable<KeyValuePair<GenericCraftingRecipe,ArmorPieceDefinition>> entries)
+        {
+            // Keep archived versions beside their matching armor piece.
+            return entries.OrderBy(entry=>entry.Value.Style).ThenBy(entry=>entry.Value.Slot)
+                .ThenBy(entry=>entry.Key.Hash).Select(entry=>entry.Key).ToArray();
+        }
+
+        static List<CollectionPlan> RegistrationPlans(GenericCraftingRecipe recipe,ArmorPieceDefinition piece)
         {
             if(ReferenceEquals(recipe,null))throw new ArgumentNullException("recipe");
-            if(approved.Any(other=>other.Hash==recipe.Hash))throw new InvalidOperationException("An armor recipe book version already owns hash "+recipe.Hash);
-            var next=approved.Concat(new[]{recipe}).OrderBy(value=>value.Hash).ToArray();
+            if(approved.Keys.Any(other=>other.Hash==recipe.Hash))throw new InvalidOperationException("An armor recipe book version already owns hash "+recipe.Hash);
+            var next=InBookOrder(approved.Concat(new[]{new KeyValuePair<GenericCraftingRecipe,ArmorPieceDefinition>(recipe,piece)}));
             // Validate every currently loaded collection before changing any of
             // them or admitting the new object to the approved version registry.
-            return PlanCollections(next,approved);
+            return PlanCollections(next,approved.Keys);
         }
-        internal static void ValidateRegistration(GenericCraftingRecipe recipe)
+        internal static void ValidateRegistration(GenericCraftingRecipe recipe,ArmorPieceDefinition piece)
         {
-            if(!ReferenceEquals(recipe,null)&&approved.Contains(recipe))return;
-            RegistrationPlans(recipe);
+            if(!ReferenceEquals(recipe,null)&&approved.ContainsKey(recipe))return;
+            RegistrationPlans(recipe,piece);
         }
-        internal static void Register(GenericCraftingRecipe recipe)
+        internal static void Register(GenericCraftingRecipe recipe,ArmorPieceDefinition piece)
         {
-            if(!ReferenceEquals(recipe,null)&&approved.Contains(recipe))return;
-            var plans=RegistrationPlans(recipe);
-            approved.Add(recipe);Apply(plans);ReplayExistingBooks();
+            if(!ReferenceEquals(recipe,null)&&approved.ContainsKey(recipe))return;
+            var plans=RegistrationPlans(recipe,piece);
+            approved.Add(recipe,piece);Apply(plans);ReplayExistingBooks();
         }
         internal static void Retire(GenericCraftingRecipe recipe)
         {
-            if(ReferenceEquals(recipe,null)||!approved.Contains(recipe))return;
-            var next=approved.Where(value=>!ReferenceEquals(value,recipe)).OrderBy(value=>value.Hash).ToArray();
-            var plans=PlanCollections(next,approved);
+            if(ReferenceEquals(recipe,null)||!approved.ContainsKey(recipe))return;
+            var next=InBookOrder(approved.Where(entry=>!ReferenceEquals(entry.Key,recipe)));
+            var plans=PlanCollections(next,approved.Keys);
             approved.Remove(recipe);Apply(plans);
             // Native book/page/render-cache references have their own lifetime.
             // Removing a whitelist entry must never destroy those live objects.
         }
         internal static void Refresh()
-        {Apply(PlanCollections(approved.OrderBy(value=>value.Hash).ToArray(),approved));ReplayExistingBooks();}
+        {Apply(PlanCollections(InBookOrder(approved),approved.Keys));ReplayExistingBooks();}
         internal static void Dispose()
         {
-            Apply(PlanCollections(new GenericCraftingRecipe[0],approved));
+            Apply(PlanCollections(new GenericCraftingRecipe[0],approved.Keys));
             approved.Clear();tracked.Clear();initialized.Clear();
         }
         static bool IsCraftingCollection(PageCollection collection)
         {return WorkshopCollection!=null&&collection!=null&&collection.Hash==WorkshopCollection.Hash&&collection.PreferredProvider==RecipeProvider;}
+        static void BeforeOpen(Book __instance,ref int ___lastOpenedPage)
+        {
+            if(NetworkSceneManager.IsServer&&!__instance.IsOpen&&!__instance.IsChangingOpenState&&IsCraftingCollection(__instance.Collection))
+                ___lastOpenedPage=0;
+        }
+        static bool NumberLearnedPage(Book __instance,ref int __result)
+        {
+            if(!NetworkSceneManager.IsServer||!IsCraftingCollection(__instance.Collection))return true;
+            // Native display adds one to this index. Unlearned recipes stay
+            // in the collection whitelist but do not occupy numbered pages.
+            __result=(int)getCurrentPage.Invoke(__instance,null);
+            return false;
+        }
         static IEnumerable<PageCollection> Collections()
         {
             tracked.RemoveWhere(collection=>collection==null);
@@ -161,7 +188,7 @@ namespace PlayerArmorMod
         static void BeforeInitializeBook(Book __instance)
         {
             if(!IsCraftingCollection(__instance.Collection))return;
-            Apply(new[]{PlanCollection(__instance.Collection,approved.OrderBy(value=>value.Hash).ToArray(),approved)});
+            Apply(new[]{PlanCollection(__instance.Collection,InBookOrder(approved),approved.Keys)});
         }
         static void AfterInitializeBook(Book __instance)
         {
@@ -185,7 +212,7 @@ namespace PlayerArmorMod
             var pages=bookPages.GetValue(book) as IEnumerable<PageData>;
             if(pages==null)return;
             var known=new HashSet<(int,uint)>(learned);
-            foreach(var recipe in approved.OrderBy(value=>value.Hash))
+            foreach(var recipe in InBookOrder(approved))
             {
                 var key=(RecipeProvider,recipe.Hash);
                 if(!known.Contains(key)||pages.Any(page=>page!=null&&page.Provider!=null&&page.Provider.Identifier==RecipeProvider&&ReferenceEquals(page.ProviderData,recipe)))continue;

@@ -27,7 +27,7 @@ namespace PlayerArmorMod
             internal ArmorPieceDefinition Piece;
             internal NetworkPrefab Result,Page;
             internal GenericCraftingRecipe Native;
-            internal Mesh Mesh;
+            internal Mesh Mesh,WoodlandBucketMesh;
             internal ArmorRecipeSettings Settings;
             internal string Descriptor;
             internal ArmorJigPlan Jig;
@@ -74,7 +74,6 @@ namespace PlayerArmorMod
         internal static void RegisterBatch(MelonMod owner,GameObject staging,ArmorPrefabRegistry assets,IEnumerable<ArmorPieceDefinition> definitions,bool complete)
         {
             if(registered)return;
-            if(!Core.IsServer)ArmorCraftingJig.Configure(assets.VisualTemplate);
             nativeTemplates=HashedGeneralValue<GenericCraftingRecipe>.All.SelectMany(r=>r.Pieces).Where(p=>p!=null&&p.source!=null&&p.mesh!=null&&p.nailSettings!=null).ToArray();
             if(nativeTemplates.Length==0)throw new InvalidOperationException("Native workbench recipe templates are unavailable");
             // The lower-hash Duplicate Paper Variant (#11048) is deliberately
@@ -88,11 +87,12 @@ namespace PlayerArmorMod
                 if(result==null||result.GetComponent<Pickup>()==null)throw new InvalidOperationException("Missing recipe result "+piece.PrefabName);
                 if(ArmorCatalog.IsChestOnly(piece.Style))chestOnlyResults.Add(result.Hash);
                 string leaf=piece.ArtRootName.Substring(piece.ArtRootName.LastIndexOf('/')+1);
-                var art=assets.VisualTemplate.transform.Find("Pickups/"+piece.Style+"/"+leaf);
+                var art=piece.Style==ArmorStyle.Forgeguard?assets.PickupArt(piece):assets.VisualTemplate.transform.Find("Pickups/"+piece.Style+"/"+leaf);
                 var mesh=art==null?null:art.GetComponent<MeshFilter>();
                 if(mesh==null||mesh.sharedMesh==null)throw new InvalidOperationException("Missing compact recipe art "+piece.PrefabName);
                 CheckHash<Glyph>(ArmorCraftingPlan.GlyphHash(piece.PrefabName));
-                planned.Add(new Recipe{Piece=piece,Result=result,Mesh=mesh.sharedMesh});
+                planned.Add(new Recipe{Piece=piece,Result=result,Mesh=mesh.sharedMesh,
+                    WoodlandBucketMesh=ArmorCatalog.IsWoodlandHelmet(piece)?assets.PickupArt(piece).GetComponent<MeshFilter>().sharedMesh:null});
             }
             // Compile every configured ingredient before modifying any native
             // recipe dictionary or registering a page prefab.
@@ -176,7 +176,8 @@ namespace PlayerArmorMod
             if(__result&&!AllowsRecipe(__instance,recipe)){recipe=null;__result=false;return;}
             if(!__result||!OwnsRecipe(recipe))return;
             var old=versions[recipe.Hash];
-            if(ArmorConstructionPlan.Layout(old.Settings)!=2)return;
+            uint oldLayout=ArmorConstructionPlan.Layout(old.Settings);
+            if(oldLayout!=2&&!(oldLayout==3&&ArmorCatalog.IsWoodlandHelmet(old.Piece)))return;
             var active=recipes.FirstOrDefault(r=>r.Piece.PrefabName==old.Piece.PrefabName);
             if(active!=null&&OwnsJigRecipe(active.Native)&&active.Descriptor==ArmorCraftingRecipeCodec.Canonical(ActiveSettings(old.Settings)))recipe=active.Native;
         }
@@ -207,21 +208,23 @@ namespace PlayerArmorMod
                 if(!string.IsNullOrEmpty(ingredient.material)&&!HasMaterial(ingredient.material))throw new InvalidOperationException("Unknown native physical material "+ingredient.material);
                 for(int i=0;i<ingredient.quantity;i++){sources.Add(source);requirements.Add(ingredient.material);}
             }
-            var meshes=ArmorConstructionPlan.Layout(settings)>=2?BuildSemanticMeshes(recipe,sources):ArmorCraftingMesh.Partition(recipe.Mesh,count,recipe.Piece.Slot);
+            uint layout=ArmorConstructionPlan.Layout(settings);
+            var meshes=layout>=2?BuildSemanticMeshes(recipe,sources):ArmorCraftingMesh.Partition(recipe.Mesh,count,recipe.Piece.Slot);
             var collisionMeshes=new Mesh[count];
             var result=new GenericCraftingPieceDefinition[count];
             try
             {
             var primary=sources.Select(source=>source.source.Prefab.Hash==ArmorConstructionPlan.PrimarySource(recipe.Piece.Style)).ToArray();
-            if(ArmorConstructionPlan.Layout(settings)==3)ArmorCraftingMesh.PrepareJigMeshes(meshes,primary,recipe.Piece.Style,recipe.Piece.Slot);
+            if(layout>=3)ArmorCraftingMesh.PrepareJigMeshes(meshes,primary,recipe.Piece.Style,recipe.Piece.Slot);
             for(int i=0;i<count;i++)collisionMeshes[i]=ArmorCraftingMesh.CollisionProxy(meshes[i]);
             var requiresNails=sources.Select(source=>!string.Equals(Compact(source.source.name),"ropeclump",StringComparison.Ordinal)).ToArray();
             Vector3[] nailPositions;Quaternion[] nailRotations;
-            if(ArmorConstructionPlan.Layout(settings)==3)
+            if(layout>=3)
             {
                 // Client and server read the same verified stage/nail plan.
                 // Do not independently search seams on different platforms.
-                recipe.Jig=ArmorCraftingJigPlans.Read(recipe.Piece,sources.Select(source=>source.source.Prefab.Hash).ToArray());
+                recipe.Jig=ArmorCraftingJigPlans.Read(recipe.Piece,sources.Select(source=>source.source.Prefab.Hash).ToArray(),
+                    layout==ArmorConstructionPlan.WoodlandBucketLayout);
                 requiresNails=recipe.Jig.RequiresNails;nailPositions=recipe.Jig.NailPositions;nailRotations=recipe.Jig.NailRotations;
             }
             else ArmorCraftingMesh.NailPoses(meshes,collisionMeshes,out nailPositions,out nailRotations,requiresNails);
@@ -342,11 +345,7 @@ namespace PlayerArmorMod
         }
         internal static void Dispose(){ArmorSettings.Changed-=SettingsChanged;ArmorCraftingDiagnostics.Dispose();ArmorRecipeBookIntegration.Dispose();
             ArmorCraftingJigPlans.Dispose();
-            if(!Core.IsServer)
-            {
-                ArmorCraftingJig.Dispose();
-                ArmorRecipeGlyphArt.Dispose();
-            }
+            if(!Core.IsServer)ArmorRecipeGlyphArt.Dispose();
         }
     }
     internal sealed class ArmorCraftingPage : MonoBehaviour

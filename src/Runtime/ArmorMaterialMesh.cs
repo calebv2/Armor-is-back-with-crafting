@@ -99,7 +99,7 @@ namespace PlayerArmorMod
                             // an ingredient that was never saved on that item.
                             section=primaryCount+(int)part.y;
                             color=Color.white;
-                            if(tintFasteners&&primaryCount>0&&style==ArmorStyle.Metal)
+                            if(tintFasteners&&primaryCount>0&&(style==ArmorStyle.Metal||style==ArmorStyle.Forgeguard))
                                 color=section<palette.Length?palette[section]:palette[0];
                         }
                     }

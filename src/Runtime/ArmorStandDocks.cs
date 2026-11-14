@@ -36,7 +36,7 @@ namespace PlayerArmorMod
                 int interactionLayer = -1;
                 foreach (var definition in ArmorCatalog.AllPieces)
                 {
-                    if ((int)definition.Slot != i || definition.Style == ArmorStyle.Wyrm) continue;
+                    if ((int)definition.Slot != i || ArmorCatalog.IsWyrmStyle(definition.Style) || ArmorCatalog.IsStandaloneHelmet(definition.Style)) continue;
                     var armor = assets.PiecesFor(definition.Style)[i];
                     var pickup = armor == null ? null : armor.GetComponent<Pickup>();
                     var box = armor == null ? null : armor.GetComponent<BoxCollider>();
@@ -81,22 +81,24 @@ namespace PlayerArmorMod
 
         // The saved stand keeps its existing registration ahead of the Wyrm
         // prefabs. Extend the same embedded sockets once those items have IDs.
-        internal static void AddWyrm(NetworkPrefab stand, NetworkPrefab[] pieces)
+        internal static void AddFamily(NetworkPrefab stand, NetworkPrefab[] pieces)
         {
             for (int slot = 0; slot < ArmorCatalog.SlotCount; slot++)
-            {
-                var dock = stand.Embedded[slot].GetComponent<ArmorStandDock>();
-                var armor = pieces[slot];
-                var box = armor.GetComponent<BoxCollider>();
-                var range = dock.GetComponent<BoxCollider>();
-                var extra = new Bounds(box.center, box.size);
-                extra.Expand(.08f);
-                var combined = new Bounds(range.center, range.size);
-                combined.Encapsulate(extra);
-                range.center = combined.center;
-                range.size = combined.size;
-                dock.Settings.IncludedItems.Add(armor.GetComponent<Pickup>().Item);
-            }
+                AddPiece(stand,slot,pieces[slot]);
+        }
+
+        internal static void AddPiece(NetworkPrefab stand,int slot,NetworkPrefab armor)
+        {
+            var dock = stand.Embedded[slot].GetComponent<ArmorStandDock>();
+            var box = armor.GetComponent<BoxCollider>();
+            var range = dock.GetComponent<BoxCollider>();
+            var extra = new Bounds(box.center, box.size);
+            extra.Expand(.08f);
+            var combined = new Bounds(range.center, range.size);
+            combined.Encapsulate(extra);
+            range.center = combined.center;
+            range.size = combined.size;
+            dock.Settings.IncludedItems.Add(armor.GetComponent<Pickup>().Item);
         }
     }
 

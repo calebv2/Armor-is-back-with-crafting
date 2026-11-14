@@ -20,15 +20,20 @@ namespace PlayerArmorMod
         object server,localPlayer;
         string nonce,epoch;
         uint revision;
+        byte movementMask;
+        uint movementStyles,movementRevision;
+        float movementMultiplier=1f;
         float nextHello,nextRefresh,nextResolve,retry=1;
         bool confirmed,helloSent;
         readonly ArmorConnectionGuide indicator;
         string guideStatus;
         float nextGuideLog;
         readonly ArmorDummyInteraction dummyInteraction;
+        readonly ArmorDummyDurability dummyDurability = new ArmorDummyDurability();
+        readonly Func<int,Transform> dummyPointForSlot;
         readonly ArmorDummyMeshSelection dummyMesh=new ArmorDummyMeshSelection();
         readonly ArmorSettingsAssembly settingsAssembly=new ArmorSettingsAssembly();
-        internal ArmorClient(ArmorPrefabRegistry registry){assets=registry;dummyInteraction=new ArmorDummyInteraction(Send,DummySurfaceDistance);indicator=new ArmorConnectionGuide(Core.Error);current=this;}
+        internal ArmorClient(ArmorPrefabRegistry registry){assets=registry;dummyInteraction=new ArmorDummyInteraction(Send,DummySurfaceDistance);dummyPointForSlot=dummyInteraction.DummyPoint;indicator=new ArmorConnectionGuide(Core.Error);current=this;}
         float? DummySurfaceDistance(Transform root,int slot,uint pickup,Vector3 hand)
         {
             var player=PlayerController.Current;
@@ -38,11 +43,25 @@ namespace PlayerArmorMod
         }
         internal void Install(HarmonyLib.Harmony harmony)
         {
-            ArmorFabricMeshPacking.Install(harmony);
+            ArmorMovement.Install(harmony);
+            ArmorCosmeticCoverage.Install(harmony);
             ArmorHandInteraction.Install(harmony,Core.Log);
             Core.Log("PLAYER_ARMOR_HAND_GUARD_READY armor targets filtered before native hand overlap collection");
             harmony.Patch(AccessTools.Method(typeof(PlayerTextMessage),"Serialize"),postfix:new HarmonyMethod(typeof(ArmorClient),"MessagePostfix"));
             harmony.Patch(AccessTools.Method(typeof(PlayerMessageDisplay),"Display",new[]{typeof(string),typeof(float),typeof(DisplayMessageType)}),prefix:new HarmonyMethod(typeof(ArmorClient),"DisplayPrefix"));
+        }
+        internal static float MovementMultiplier(PlayerController player)
+        {
+            if(current==null||!current.confirmed||!ArmorSettings.RemoteReady||player==null||player!=PlayerController.Current||player.Entity==null||!player.IsAlive||player.IsSpirit)return 1;
+            ArmorActorState actor;if(!current.state.TryGetValue(player.Entity.Identifier,out actor))return 1;
+            // This runs at locomotion frequency. Resolve settings only when
+            // equipment or configuration changes, without per-frame LINQ work.
+            if(current.movementMask!=actor.EquippedMask||current.movementStyles!=actor.StyleBits||current.movementRevision!=ArmorSettings.Revision)
+            {
+                current.movementMask=actor.EquippedMask;current.movementStyles=actor.StyleBits;current.movementRevision=ArmorSettings.Revision;
+                current.movementMultiplier=ForgeguardPolicy.MovementMultiplier(actor.EquippedMask,actor.StyleBits);
+            }
+            return current.movementMultiplier;
         }
         internal void Update()
         {
@@ -68,7 +87,7 @@ namespace PlayerArmorMod
         }
         internal void LateUpdate()
         {
-            if(!confirmed||NetworkSceneManager.Current==null){dummyInteraction.Reset();HideIndicator();return;}
+            if(!confirmed||NetworkSceneManager.Current==null){dummyInteraction.Reset();dummyDurability.Hide();HideIndicator();return;}
             foreach(var entry in views)
             {
                 ArmorActorState actor;if(!state.TryGetValue(entry.Key,out actor))continue;
@@ -82,8 +101,14 @@ namespace PlayerArmorMod
                 var entity=NetworkSceneManager.Current.GetEntity(localState.HarnessId);
                 dummyInteraction.SetWornItems(entity==null?null:entity.GetComponent<ArmorHarness>());
                 dummyInteraction.Update(owner,localState.EquippedMask,nonce,Time.unscaledTime);
+                var room = dummyInteraction.DummyRoom;
+                if (room != null && owner.IsAlive)
+                    dummyDurability.Update(assets.VisualTemplate, room.transform,
+                        dummyPointForSlot((int)ArmorSlot.Chest), owner.Head, dummyInteraction.DummyLayer,
+                        dummyPointForSlot, localState);
+                else dummyDurability.Hide();
             }
-            else dummyInteraction.Reset();
+            else {dummyInteraction.Reset();dummyDurability.Hide();}
             UpdateIndicator();
         }
         void Resolve()
@@ -99,7 +124,9 @@ namespace PlayerArmorMod
                 ApplyConditions(harness,actor);
                 ArmorHandInteraction.UpdateHarness(harness);
                 PlayerArmorRigBinding binding;
-                if(!views.TryGetValue(actor.ControllerId,out binding))views[actor.ControllerId]=binding=new PlayerArmorRigBinding(assets.VisualTemplate,Core.Log,assets.WyrmTemplate);
+                if(!views.TryGetValue(actor.ControllerId,out binding))
+                    views[actor.ControllerId]=binding=new PlayerArmorRigBinding(assets.VisualTemplate,Core.Log,assets.WyrmTemplate,
+                        assets.CrystalWyrmTemplate,assets.StandaloneHelmetsTemplate,assets.ForgeguardTemplate);
                 UpdateView(binding,character,actor);
             }
         }
@@ -207,11 +234,12 @@ namespace PlayerArmorMod
             settingsAssembly.Clear();if(resetSettings)ArmorSettings.ResetRemote();
             foreach(var view in views.Values)view.Dispose();views.Clear();state.Clear();dummyInteraction.Reset();HideIndicator();guideStatus=null;nextGuideLog=0;ArmorHandInteraction.ResetDiagnostics();
             dummyMesh.Clear();ArmorMaterialPalette.Clear();
+            dummyDurability.Hide();
             presentationWarnings.Clear();
         }
         public void Dispose()
         {
-            Clear();ArmorFabricMeshPacking.Dispose();indicator.Dispose();ArmorHandInteraction.Dispose();if(current==this)current=null;
+            Clear();dummyDurability.Dispose();ArmorBracerFit.Dispose();ArmorCosmeticCoverage.Dispose();indicator.Dispose();ArmorHandInteraction.Dispose();if(current==this)current=null;
         }
     }
 }

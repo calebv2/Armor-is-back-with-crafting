@@ -36,11 +36,13 @@ namespace PlayerArmorMod
     // server. Production never repeats the floating-point seam/ordering search.
     internal static class ArmorCraftingJigPlans
     {
-        static int EntryCount{get{return ArmorCatalog.RecipePagePieces.Count;}}
+        static int EntryCount{get{return 35;}}
         const int MaximumJsonBytes=1024*1024;
         const string ArchiveResource="PlayerArmor.JigPlans",ModelResource="PlayerArmor.Model";
         static readonly object gate=new object();
         static Dictionary<string,ArmorJigArchiveEntry> loaded;
+        static ArmorJigArchiveEntry woodlandBucket;
+        static Dictionary<string,ArmorJigArchiveEntry> forgeguard;
         static string modelSha256;
 
         static InvalidDataException Invalid(string message){return new InvalidDataException("Armor jig archive: "+message);}
@@ -152,7 +154,7 @@ namespace PlayerArmorMod
             var result=new Dictionary<string,ArmorJigArchiveEntry>(StringComparer.Ordinal);
             foreach(var entry in archive.entries)
             {Validate(entry);if(result.ContainsKey(entry.prefabName))throw Invalid("duplicate armor prefab "+entry.prefabName);result.Add(entry.prefabName,entry);}
-            foreach(var piece in ArmorCatalog.RecipePagePieces)if(!result.ContainsKey(piece.PrefabName))throw Invalid("missing armor prefab "+piece.PrefabName);return result;
+            foreach(var piece in ArmorCatalog.RecipePagePieces)if(piece.Style!=ArmorStyle.Forgeguard&&!result.ContainsKey(piece.PrefabName))throw Invalid("missing armor prefab "+piece.PrefabName);return result;
         }
 
         static JObject Object(JToken token,string name,params string[] fields)
@@ -228,14 +230,55 @@ namespace PlayerArmorMod
                 using(var reader=new StreamReader(resource,new UTF8Encoding(false,true)))loaded=Parse(reader.ReadToEnd(),modelSha256);
             }
         }
-        internal static void VerifyEmbedded(){lock(gate)Load();}
-        internal static ArmorJigPlan Read(ArmorPieceDefinition piece,uint[] sourceHashes)
+        static void LoadWoodlandBucket()
+        {
+            if(woodlandBucket!=null)return;
+            var assembly=typeof(ArmorCraftingJigPlans).Assembly;
+            using(var bundle=assembly.GetManifestResourceStream("PlayerArmor.StandaloneHelmets"))
+            using(var resource=assembly.GetManifestResourceStream("PlayerArmor.WoodlandBucketJig"))
+            using(var hash=SHA256.Create())
+            {
+                if(bundle==null||resource==null)throw Invalid("Woodland bucket art or jig is missing");
+                string digest=BitConverter.ToString(hash.ComputeHash(bundle)).Replace("-","");
+                ArmorJigArchive archive;
+                using(var reader=new StreamReader(resource,new UTF8Encoding(false,true)))archive=ReadArchive(reader.ReadToEnd());
+                if(archive.schemaVersion!=1||!string.Equals(archive.bundleSha256,digest,StringComparison.OrdinalIgnoreCase)||
+                    archive.entries.Length!=1||archive.entries[0].prefabName!=ArmorCatalog.WoodlandPieces[0].PrefabName)
+                    throw Invalid("verified Woodland bucket jig does not match the helmet bundle");
+                Validate(archive.entries[0]);woodlandBucket=archive.entries[0];
+            }
+        }
+        static void LoadForgeguard()
+        {
+            if(forgeguard!=null)return;var assembly=typeof(ArmorCraftingJigPlans).Assembly;
+            using(var bundle=assembly.GetManifestResourceStream("PlayerArmor.Forgeguard"))
+            using(var resource=assembly.GetManifestResourceStream("PlayerArmor.ForgeguardJig"))
+            using(var hash=SHA256.Create())
+            {
+                if(bundle==null||resource==null)throw Invalid("Forgeguard art or jig is missing");
+                string digest=BitConverter.ToString(hash.ComputeHash(bundle)).Replace("-","");
+                ArmorJigArchive archive;using(var reader=new StreamReader(resource,new UTF8Encoding(false,true)))archive=ReadArchive(reader.ReadToEnd());
+                if(archive.schemaVersion!=1||archive.entries.Length!=7||!string.Equals(digest,archive.bundleSha256,StringComparison.OrdinalIgnoreCase))throw Invalid("Forgeguard archive does not match its model");
+                var entries=new Dictionary<string,ArmorJigArchiveEntry>(StringComparer.Ordinal);
+                foreach(var entry in archive.entries){Validate(entry);if(Piece(entry.prefabName).Style!=ArmorStyle.Forgeguard||entries.ContainsKey(entry.prefabName))throw Invalid("Unexpected Forgeguard piece");entries.Add(entry.prefabName,entry);}
+                forgeguard=entries;
+            }
+        }
+        internal static void VerifyEmbedded(){lock(gate){Load();LoadWoodlandBucket();LoadForgeguard();}}
+        internal static ArmorJigPlan Read(ArmorPieceDefinition piece,uint[] sourceHashes,bool useWoodlandBucket=false)
         {
             if(piece==null)throw new ArgumentNullException("piece");var canonical=Piece(piece.PrefabName);
             if(canonical.Style!=piece.Style||canonical.Slot!=piece.Slot)throw Invalid("armor style/slot differs from its canonical prefab");
             lock(gate)
             {
-                Load();ArmorJigArchiveEntry entry;if(!loaded.TryGetValue(piece.PrefabName,out entry))throw Invalid("verified prefab plan is unavailable");
+                Load();ArmorJigArchiveEntry entry;
+                if(useWoodlandBucket)
+                {
+                    if(!ArmorCatalog.IsWoodlandHelmet(piece))throw Invalid("Woodland bucket layout requires the Woodland helmet");
+                    LoadWoodlandBucket();entry=woodlandBucket;
+                }
+                else if(piece.Style==ArmorStyle.Forgeguard){LoadForgeguard();entry=forgeguard[piece.PrefabName];}
+                else if(!loaded.TryGetValue(piece.PrefabName,out entry))throw Invalid("verified prefab plan is unavailable");
                 if(!Equal(entry.sources,sourceHashes))throw Invalid(piece.PrefabName+" native source order differs from its verified jig plan");
                 var plan=new ArmorJigPlan{Levels=Copy(entry.levels,"levels"),Parents=Copy(entry.parents,"parents"),RequiresNails=Copy(entry.requiresNails,"requiresNails"),NailPositions=Copy(entry.nailPositions,"nailPositions"),NailRotations=Copy(entry.nailRotations,"nailRotations"),JointPoints=Copy(entry.jointPoints,"jointPoints"),SupportPoints=Copy(entry.supportPoints,"supportPoints"),JointGaps=Copy(entry.jointGaps,"jointGaps")};
                 // Match the synchronous authoring planner contract without
@@ -243,6 +286,6 @@ namespace PlayerArmorMod
                 ArmorCraftingMesh.LastNailClearanceDegrees=Copy(entry.clearanceDegrees,"clearanceDegrees");return plan;
             }
         }
-        internal static void Dispose(){lock(gate)loaded=null;}
+        internal static void Dispose(){lock(gate){loaded=null;woodlandBucket=null;forgeguard=null;}}
     }
 }

@@ -22,7 +22,14 @@ namespace PlayerArmorMod
         Woodland=2,
         Hebios=3,
         Mushroom=4,
-        Wyrm=5
+        Wyrm=5,
+        CrystalWyrm=6,
+        // Values 7–14 were used by retired preview helmets.
+        NewsboyHelmet=15,
+        BucketHelmet=16,
+        SpriggullFullHelmet=17,
+        CauldronHelmet=18,
+        Forgeguard=19
     }
 
     public sealed class ArmorPieceDefinition
@@ -47,13 +54,22 @@ namespace PlayerArmorMod
     {
         public const int SlotCount=7;
         public const byte AllEquippedMask=127;
-        // Presentation-only wire state. Saved armor remains the native docked
-        // pickup identity; protocol15 widens the transient family mask to allow
-        // five families without renumbering any existing style or item.
+        // Existing families retain their three bits per slot. A head marker of
+        // seven uses the upper bits for a standalone helmet; saves use the pickup.
         public const int StyleBitsPerSlot=3;
         public const uint StyleValueMask=7;
-        public const uint AllStyleBits=(1u<<(StyleBitsPerSlot*SlotCount))-1u;
+        const int HelmetShift=StyleBitsPerSlot*SlotCount;
+        const uint HelmetMask=31u<<HelmetShift;
+        public const uint AllStyleBits=((1u<<HelmetShift)-1u)|HelmetMask;
+        internal const ArmorStyle LatestStyle=ArmorStyle.Forgeguard;
         public const string HarnessName="ATT_PlayerArmor_Harness";
+        internal const string CrystalWyrmPrefabPrefix="ATT_CrystalWyrmArmor_";
+        internal const string StandaloneHelmetPrefabPrefix="ATT_Helmet_";
+        static readonly HashSet<string> retiredHelmetPrefabs=new HashSet<string>(StringComparer.Ordinal)
+        {
+            "ATT_Helmet_Spriggull","ATT_Helmet_RedwoodGotera","ATT_Helmet_Turabada","ATT_Helmet_Babu",
+            "ATT_Helmet_Phantom","ATT_Helmet_PhantomGuard","ATT_Helmet_NightPhantom","ATT_Helmet_Respirator"
+        };
 
         static readonly ReadOnlyCollection<ArmorPieceDefinition> pieces=Array.AsReadOnly(new[]
         {
@@ -80,12 +96,24 @@ namespace PlayerArmorMod
         static readonly ReadOnlyCollection<ArmorPieceDefinition> hebiosPieces=MakeFamily(ArmorStyle.Hebios,"ATT_HebiosArmor_","Hebios/");
         static readonly ReadOnlyCollection<ArmorPieceDefinition> mushroomPieces=MakeFamily(ArmorStyle.Mushroom,"ATT_MushroomArmor_","Mushroom/");
         static readonly ReadOnlyCollection<ArmorPieceDefinition> wyrmPieces=MakeFamily(ArmorStyle.Wyrm,"ATT_WyrmArmor_","Wyrm/");
+        static readonly ReadOnlyCollection<ArmorPieceDefinition> crystalWyrmPieces=MakeFamily(ArmorStyle.CrystalWyrm,CrystalWyrmPrefabPrefix,"Crystal/");
+        static readonly ReadOnlyCollection<ArmorPieceDefinition> forgeguardPieces=MakeFamily(ArmorStyle.Forgeguard,"ATT_ForgeguardArmor_","Forgeguard/");
+        static readonly ReadOnlyCollection<ArmorPieceDefinition> standaloneHelmets=Array.AsReadOnly(new[]
+        {
+            MakeHelmet(ArmorStyle.NewsboyHelmet,"Newsboy"),
+            MakeHelmet(ArmorStyle.BucketHelmet,"Bucket"),
+            MakeHelmet(ArmorStyle.SpriggullFullHelmet,"SpriggullFull"),
+            MakeHelmet(ArmorStyle.CauldronHelmet,"Cauldron")
+        });
         static readonly ReadOnlyCollection<ArmorPieceDefinition> legacyPieces=MakePieces(false);
         static readonly ReadOnlyCollection<ArmorPieceDefinition> expansionPieces=MakeExpansions();
         // Mushroom pages and plans remain readable for old saves. Wyrm was
         // introduced as loot and has never had workbench pages or jig plans.
         static readonly ReadOnlyCollection<ArmorPieceDefinition> recipePagePieces=MakePieces(true);
-        static readonly ReadOnlyCollection<ArmorPieceDefinition> allPieces=AddWyrmPieces();
+        static readonly ReadOnlyCollection<ArmorPieceDefinition> allPieces=AddLootAndStandalonePieces();
+
+        static ArmorPieceDefinition MakeHelmet(ArmorStyle style,string key)
+        {return new ArmorPieceDefinition(style,ArmorSlot.Head,StandaloneHelmetPrefabPrefix+key,"head_jnt","Helmets/"+key);}
 
         static ReadOnlyCollection<ArmorPieceDefinition> MakeFamily(ArmorStyle style,string prefix,string artPrefix)
         {
@@ -101,56 +129,105 @@ namespace PlayerArmorMod
         {
             var all=new List<ArmorPieceDefinition>(pieces);
             all.AddRange(leatherPieces);
-            if(includeExpansions){all.AddRange(woodlandPieces);all.AddRange(hebiosPieces);all.AddRange(mushroomPieces);}
+            if(includeExpansions){all.AddRange(woodlandPieces);all.AddRange(hebiosPieces);all.AddRange(mushroomPieces);all.AddRange(forgeguardPieces);}
             return all.AsReadOnly();
         }
         static ReadOnlyCollection<ArmorPieceDefinition> MakeExpansions()
-        {var result=new List<ArmorPieceDefinition>(woodlandPieces);result.AddRange(hebiosPieces);result.AddRange(mushroomPieces);result.AddRange(wyrmPieces);return result.AsReadOnly();}
-        static ReadOnlyCollection<ArmorPieceDefinition> AddWyrmPieces()
+        {
+            var result=new List<ArmorPieceDefinition>(woodlandPieces);
+            result.AddRange(hebiosPieces);result.AddRange(mushroomPieces);result.AddRange(wyrmPieces);result.AddRange(crystalWyrmPieces);
+            result.AddRange(standaloneHelmets);result.AddRange(forgeguardPieces);
+            return result.AsReadOnly();
+        }
+        static ReadOnlyCollection<ArmorPieceDefinition> AddLootAndStandalonePieces()
         {
             var result=new List<ArmorPieceDefinition>(recipePagePieces);
             result.AddRange(wyrmPieces);
+            result.AddRange(crystalWyrmPieces);
+            result.AddRange(standaloneHelmets);
             return result.AsReadOnly();
         }
+        public static ReadOnlyCollection<ArmorPieceDefinition> ForgeguardPieces {get{return forgeguardPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> Pieces {get{return pieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> LeatherPieces {get{return leatherPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> WoodlandPieces {get{return woodlandPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> HebiosPieces {get{return hebiosPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> MushroomPieces {get{return mushroomPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> WyrmPieces {get{return wyrmPieces;}}
+        public static ReadOnlyCollection<ArmorPieceDefinition> CrystalWyrmPieces {get{return crystalWyrmPieces;}}
+        internal static ReadOnlyCollection<ArmorPieceDefinition> StandaloneHelmets {get{return standaloneHelmets;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> LegacyPieces {get{return legacyPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> ExpansionPieces {get{return expansionPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> AllPieces {get{return allPieces;}}
         public static ReadOnlyCollection<ArmorPieceDefinition> RecipePagePieces {get{return recipePagePieces;}}
         public static bool IsValidSlot(ArmorSlot slot){return (int)slot>=0&&(int)slot<SlotCount;}
-        public static bool IsValidStyle(ArmorStyle style){return (int)style<=(int)ArmorStyle.Wyrm;}
-        public static bool UsesMetalMaterials(ArmorStyle style){return style==ArmorStyle.Metal||style==ArmorStyle.Hebios;}
+        public static bool IsValidStyle(ArmorStyle style){return style<=ArmorStyle.CrystalWyrm||style==ArmorStyle.Forgeguard||IsStandaloneHelmet(style);}
+        internal static bool IsValidStyle(ArmorStyle style,ArmorSlot slot)
+        {return IsValidStyle(style)&&IsValidSlot(slot)&&(!IsStandaloneHelmet(style)||slot==ArmorSlot.Head);}
+        internal static bool IsStandaloneHelmet(ArmorStyle style)
+        {return style>=ArmorStyle.NewsboyHelmet&&style<=ArmorStyle.CauldronHelmet;}
+        internal static bool IsRetiredHelmetStyle(ArmorStyle style)
+        {return style>ArmorStyle.CrystalWyrm&&style<ArmorStyle.NewsboyHelmet;}
+        internal static bool IsRetiredHelmetPrefab(string prefabName){return retiredHelmetPrefabs.Contains(prefabName);}
+        internal static int HelmetIndex(ArmorStyle style){return (int)style-(int)ArmorStyle.NewsboyHelmet;}
+        internal static bool IsWoodlandHelmet(ArmorPieceDefinition piece)
+        {return piece.Style==ArmorStyle.Woodland&&piece.Slot==ArmorSlot.Head;}
+        public static bool UsesMetalMaterials(ArmorStyle style){return style==ArmorStyle.Metal||style==ArmorStyle.Hebios||style==ArmorStyle.Forgeguard;}
         public static bool UsesCraftMaterials(ArmorStyle style){return UsesMetalMaterials(style)||style==ArmorStyle.Woodland||style==ArmorStyle.Leather;}
         public static bool IsChestOnly(ArmorStyle style){return style==ArmorStyle.Mushroom;}
-        public static bool IsLootOnly(ArmorStyle style){return IsChestOnly(style)||style==ArmorStyle.Wyrm;}
+        internal static bool IsWyrmStyle(ArmorStyle style){return style==ArmorStyle.Wyrm||style==ArmorStyle.CrystalWyrm;}
+        public static bool IsLootOnly(ArmorStyle style){return IsChestOnly(style)||IsWyrmStyle(style);}
+        internal static bool IsCraftable(ArmorStyle style){return !IsLootOnly(style)&&!IsStandaloneHelmet(style);}
         public static bool TintsFasteners(ArmorStyle style){return UsesMetalMaterials(style)||style==ArmorStyle.Leather;}
         public static ReadOnlyCollection<ArmorPieceDefinition> ForStyle(ArmorStyle style)
         {
-            switch(style){case ArmorStyle.Metal:return pieces;case ArmorStyle.Leather:return leatherPieces;case ArmorStyle.Woodland:return woodlandPieces;case ArmorStyle.Hebios:return hebiosPieces;case ArmorStyle.Mushroom:return mushroomPieces;case ArmorStyle.Wyrm:return wyrmPieces;default:throw new ArgumentOutOfRangeException("style");}
+            switch(style)
+            {
+                case ArmorStyle.Metal:return pieces;
+                case ArmorStyle.Leather:return leatherPieces;
+                case ArmorStyle.Woodland:return woodlandPieces;
+                case ArmorStyle.Hebios:return hebiosPieces;
+                case ArmorStyle.Mushroom:return mushroomPieces;
+                case ArmorStyle.Wyrm:return wyrmPieces;
+                case ArmorStyle.CrystalWyrm:return crystalWyrmPieces;
+                case ArmorStyle.Forgeguard:return forgeguardPieces;
+                default:
+                    if(IsStandaloneHelmet(style))return Array.AsReadOnly(new[]{standaloneHelmets[HelmetIndex(style)]});
+                    throw new ArgumentOutOfRangeException("style");
+            }
         }
         public static uint PackLegacyLeather(byte leatherMask)
         {uint result=0;for(int i=0;i<SlotCount;i++)if((leatherMask&(1<<i))!=0)result=SetStyle(result,(ArmorSlot)i,ArmorStyle.Leather);return result;}
         public static ArmorStyle StyleAt(uint styles,ArmorSlot slot)
-        {if(!IsValidSlot(slot))throw new ArgumentOutOfRangeException("slot");return (ArmorStyle)((styles>>(StyleBitsPerSlot*(int)slot))&StyleValueMask);}
+        {
+            if(!IsValidSlot(slot))throw new ArgumentOutOfRangeException("slot");
+            uint value=(styles>>(StyleBitsPerSlot*(int)slot))&StyleValueMask;
+            if(value!=StyleValueMask)return (ArmorStyle)value;
+            if(slot!=ArmorSlot.Head)return ArmorStyle.Forgeguard;
+            uint helmet=(styles&HelmetMask)>>HelmetShift;
+            return helmet==0?ArmorStyle.Forgeguard:(ArmorStyle)((uint)ArmorStyle.CrystalWyrm+helmet);
+        }
         public static uint SetStyle(uint styles,ArmorSlot slot,ArmorStyle style)
         {
             if(!IsValidSlot(slot))throw new ArgumentOutOfRangeException("slot");
-            if(!IsValidStyle(style))throw new ArgumentOutOfRangeException("style");
+            if(!IsValidStyle(style,slot))throw new ArgumentOutOfRangeException("style");
             int shift=StyleBitsPerSlot*(int)slot;
-            return(styles&~(StyleValueMask<<shift))|((uint)style<<shift);
+            if(slot==ArmorSlot.Head)
+            {
+                styles&=~HelmetMask;
+                if(IsStandaloneHelmet(style))
+                    return (styles&~StyleValueMask)|StyleValueMask|(((uint)style-(uint)ArmorStyle.CrystalWyrm)<<HelmetShift);
+            }
+            return(styles&~(StyleValueMask<<shift))|((style==ArmorStyle.Forgeguard?StyleValueMask:(uint)style)<<shift);
         }
         public static byte LeatherMaskOf(uint styles)
         {byte result=0;for(int i=0;i<SlotCount;i++)if(StyleAt(styles,(ArmorSlot)i)==ArmorStyle.Leather)result|=(byte)(1<<i);return result;}
         public static bool ValidStyles(byte occupied,uint styles)
         {
             if(occupied>AllEquippedMask||(styles&~AllStyleBits)!=0)return false;
+            if((styles&HelmetMask)!=0&&(styles&StyleValueMask)!=StyleValueMask)return false;
             for(int i=0;i<SlotCount;i++)
-            {var style=StyleAt(styles,(ArmorSlot)i);if(!IsValidStyle(style)||((occupied&(1<<i))==0&&style!=ArmorStyle.Metal))return false;}
+            {var slot=(ArmorSlot)i;var style=StyleAt(styles,slot);if(!IsValidStyle(style,slot)||((occupied&(1<<i))==0&&style!=ArmorStyle.Metal))return false;}
             return true;
         }
         public static ArmorPieceDefinition Get(ArmorSlot slot)
@@ -159,6 +236,11 @@ namespace PlayerArmorMod
         {
             if(!IsValidStyle(style))throw new ArgumentOutOfRangeException("style");
             if(!IsValidSlot(slot))throw new ArgumentOutOfRangeException("slot");
+            if(IsStandaloneHelmet(style))
+            {
+                if(slot!=ArmorSlot.Head)throw new ArgumentOutOfRangeException("slot");
+                return standaloneHelmets[HelmetIndex(style)];
+            }
             return ForStyle(style)[(int)slot];
         }
         public static byte SlotMask(ArmorSlot slot)

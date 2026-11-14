@@ -57,19 +57,26 @@ namespace PlayerArmorMod
             if(owner==null||!owner.IsAlive||owner.IsSpirit||hit==null||hit.IsDebugHit||!hit.IsValid||hit.Source!=DamageSource.Impact||!ArmorProtectionPolicy.IsProtectedImpact(hit.ImpactType)
                 ||!ArmorDurabilityPolicy.Finite(healthDamage)||!ArmorDurabilityPolicy.Finite(crippleDamage)||healthDamage<=0)return;
             ArmorHarness harness;ArmorSlot slot;
-            if(!harnesses.TryGetValue(owner,out harness)||harness==null||!harness.SessionActive||!Region(hit,__instance,out slot)||harness.Docks==null)return;
+            if(!harnesses.TryGetValue(owner,out harness)||harness==null||!harness.SessionActive||harness.Docks==null)
+            {Core.Log("PLAYER_ARMOR_HIT skipped=harness_or_session_unavailable");return;}
+            if(!Region(hit,__instance,out slot))
+            {Core.Log("PLAYER_ARMOR_HIT skipped=unrecognized_region detector="+(hit.ImpactDetector==null?"null":hit.ImpactDetector.name));return;}
             int index=(int)slot;if(index>=harness.Docks.Length)return;var dock=harness.Docks[index];
-            if(dock==null||dock.QuantityStored!=1||!dock.HasDockedPickup)return;
+            if(dock==null||dock.QuantityStored!=1||!dock.HasDockedPickup)
+            {Core.Log("PLAYER_ARMOR_HIT slot="+slot+" skipped=no_equipped_piece");return;}
             var pickup=dock.DockedPickup;var marker=pickup==null?null:pickup.GetComponent<ArmorPickup>();
-            if(marker==null||marker.Slot!=index||!ArmorCatalog.IsValidStyle(marker.Style)||pickup.Item==null)return;
-            var items=harness.ItemsFor(marker.Style);
-            if(items==null||index>=items.Length||items[index]==null||items[index].Hash!=pickup.Item.Hash)return;
-            if(pickup.Entity==null||pickup.Entity.Prefab==null||pickup.Entity.Prefab.Hash!=items[index].Hash||pickup.DurabilityModule==null
-                ||marker.GetComponent<DurabilityModule>()!=pickup.DurabilityModule)return;
+            if(marker==null||marker.Slot!=index||pickup.Item==null)return;
+            var expectedItem=harness.ItemFor(marker.Style,slot);
+            if(expectedItem==null||expectedItem.Hash!=pickup.Item.Hash)
+            {Core.Log("PLAYER_ARMOR_HIT slot="+slot+" skipped=item_mismatch");return;}
+            if(pickup.Entity==null||pickup.Entity.Prefab==null||pickup.Entity.Prefab.Hash!=expectedItem.Hash||pickup.DurabilityModule==null
+                ||marker.GetComponent<DurabilityModule>()!=pickup.DurabilityModule)
+            {Core.Log("PLAYER_ARMOR_HIT slot="+slot+" skipped=prefab_or_durability_mismatch");return;}
             var balance=ArmorSettings.GetPiece(marker.Style,slot);
-            float configured=ArmorWoodPolicy.EffectiveReduction(marker,balance.damageReduction);
+            float configured=ArmorWoodPolicy.EffectiveReduction(marker,ArmorProjectileProtection.Reduction(hit,balance));
             float reduction=ArmorDurabilityPolicy.Reduction(configured,ArmorDurability.Condition(marker),ArmorSettings.Current.durabilityEnabled);
-            if(reduction<=0)return;
+            if(reduction<=0)
+            {Core.Log("PLAYER_ARMOR_HIT slot="+slot+" skipped=no_protection condition="+ArmorDurability.Condition(marker));return;}
             // Reuse original ArmorDefinition's per-impact multiplier. Native
             // DetectImpact may already apply other equipment; our definition is
             // deliberately never assigned there, so our contribution occurs once.
@@ -82,7 +89,9 @@ namespace PlayerArmorMod
         {
             if(__state==null||__state.Piece==null||!NetworkSceneManager.IsServer)return;
             float absorbed=ArmorDurabilityPolicy.Absorbed(__state.ReducedDamage,__state.Multiplier,__state.HealthBefore,__instance.Health);
+            float before=ArmorDurability.Condition(__state.Piece);
             if(absorbed>0)ArmorDurability.Wear(__state.Piece,absorbed*__state.WearRate);
+            Core.Log("PLAYER_ARMOR_HIT slot="+(ArmorSlot)__state.Piece.Slot+" absorbed="+absorbed+" wear="+(absorbed*__state.WearRate)+" conditionBefore="+before+" conditionAfter="+ArmorDurability.Condition(__state.Piece)+" durabilityEnabled="+ArmorSettings.Current.durabilityEnabled);
         }
         static void ClearDefinitions(){foreach(var definition in definitions.Values)if(definition!=null)UnityEngine.Object.Destroy(definition);definitions.Clear();}
         internal static void Dispose(){harnesses.Clear();ClearDefinitions();definitionRevision=0;nextRefresh=0;}

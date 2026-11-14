@@ -33,6 +33,7 @@ namespace PlayerArmorMod
         {
             internal string Nonce;
             internal bool LegacyWire;
+            internal ArmorStyle LatestStyle;
             internal uint SettingsRevision;
             internal float LastSeen,NextRequest,NextEquipWarning,NextSettings;
             internal readonly float[] NextEquip=new float[ArmorCatalog.SlotCount];
@@ -185,9 +186,11 @@ namespace PlayerArmorMod
             if(command.Kind==ArmorCommandKind.Hello)
             {
                 if(clients.TryGetValue(player,out session)&&now<session.NextRequest)return;
+                if(!ArmorClientPrefabSupport.TryReadCapabilities(player.ConnectionToRemotePlayer,assets.Harness,ArmorWorkshopPrefabs.RecipeLectern,
+                    assets.CrystalWyrmPieces[0],assets.StandaloneHelmets,assets.ForgeguardPieces[0],
+                    out bool legacyWire,out ArmorStyle latestStyle))return;
                 bool newSession=session==null||session.Nonce!=command.Nonce;
                 if(newSession)pendingEquips.Remove(player);
-                bool legacyWire=ArmorClientPrefabSupport.UsesLegacyWire(player.ConnectionToRemotePlayer,assets.Harness,ArmorWorkshopPrefabs.RecipeLectern);
                 if(legacyWire&&(newSession||!session.LegacyWire))
                     Core.Log("PLAYER_ARMOR_LEGACY_SYNC controller="+player.PlayerController.Entity?.Identifier+" protocol=24");
                 session=new Session
@@ -195,7 +198,8 @@ namespace PlayerArmorMod
                     Nonce=command.Nonce,
                     LastSeen=now,
                     NextRequest=now+.5f,
-                    LegacyWire=legacyWire
+                    LegacyWire=legacyWire,
+                    LatestStyle=latestStyle
                 };
                 clients[player]=session;nextScan=0;
                 Send(player,ArmorProtocol.EncodeAck(command.Nonce,epoch));SendSnapshot(player);return;
@@ -288,12 +292,12 @@ namespace PlayerArmorMod
             var entity=owner.Entity.Scene.GetEntity(pickupId);
             if(entity==null||entity.IsBeingDestroyed||entity.Prefab==null){reason="InvalidArmor";return false;}
             pickup=entity.GetComponent<Pickup>();var marker=entity.GetComponent<ArmorPickup>();int index=(int)slot;
-            if(pickup==null||marker==null||marker.Slot!=index||!ArmorCatalog.IsValidStyle(marker.Style))
+            if(pickup==null||marker==null||marker.Slot!=index||!ArmorCatalog.IsValidStyle(marker.Style,slot))
             {reason="InvalidArmor";return false;}
-            var pieces=assets.PiecesFor(marker.Style);
-            var items=harness.ItemsFor(marker.Style);
-            if(pieces==null||index>=pieces.Length||pieces[index]==null||entity.Prefab.Hash!=pieces[index].Hash
-                ||pickup.Item==null||items==null||index>=items.Length||items[index]==null||pickup.Item.Hash!=items[index].Hash)
+            var expectedPrefab=assets.PrefabFor(marker.Style,slot);
+            var expectedItem=harness.ItemFor(marker.Style,slot);
+            if(expectedPrefab==null||entity.Prefab.Hash!=expectedPrefab.Hash
+                ||pickup.Item==null||expectedItem==null||pickup.Item.Hash!=expectedItem.Hash)
             {reason="InvalidArmor";return false;}
             if(pickup.LastPlayerInteractor!=owner&&pickup.LastInteractorPlayerId!=player.UserInfo.Identifier){reason="NotOwned";return false;}
             foreach(var hand in pickup.Interactors)
@@ -380,8 +384,18 @@ namespace PlayerArmorMod
         void PushAll()
         {
             if(clients.Count==0)return;
-            string wire=ArmorProtocol.EncodeSnapshot(Snapshot());
-            foreach(var player in clients.Keys.ToArray())if(player!=null&&player.PlayerController!=null){SendSettings(player);Send(player,wire);}
+            var snapshot=Snapshot();
+            var wires=new Dictionary<ArmorStyle,string>();
+            foreach(var entry in clients.ToArray())
+            {
+                var player=entry.Key;
+                if(player==null||player.PlayerController==null)continue;
+                SendSettings(player);
+                var latestStyle=entry.Value.LatestStyle;
+                if(!wires.TryGetValue(latestStyle,out string wire))
+                    wires.Add(latestStyle,wire=ArmorProtocol.EncodeSnapshot(snapshot,latestStyle));
+                Send(player,wire);
+            }
         }
         static ushort[] Conditions(ArmorHarness harness)
         {
@@ -406,10 +420,15 @@ namespace PlayerArmorMod
         void SendSettings(Player player)
         {
             Session session;if(!clients.TryGetValue(player,out session)||(session.SettingsRevision==ArmorSettings.Revision&&Time.unscaledTime<session.NextSettings))return;
-            foreach(string wire in ArmorSettingsWire.Encode(epoch,ArmorSettings.Revision,ArmorSettings.Serialize()))Send(player,wire);
+            foreach(string wire in ArmorSettingsWire.Encode(epoch,ArmorSettings.Revision,ArmorSettings.Serialize(session.LatestStyle)))Send(player,wire);
             session.SettingsRevision=ArmorSettings.Revision;session.NextSettings=Time.unscaledTime+15;
         }
-        void SendSnapshot(Player player){SendSettings(player);Send(player,ArmorProtocol.EncodeSnapshot(Snapshot()));}
+        void SendSnapshot(Player player)
+        {
+            if(!clients.TryGetValue(player,out var session))return;
+            SendSettings(player);
+            Send(player,ArmorProtocol.EncodeSnapshot(Snapshot(),session.LatestStyle));
+        }
         void Send(Player player,string wire)
         {
             if(player==null||player.PlayerController==null||PlayerCommunicationManager.Instance==null||!clients.TryGetValue(player,out var session))return;

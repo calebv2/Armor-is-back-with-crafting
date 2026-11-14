@@ -175,6 +175,9 @@ namespace PlayerArmorMod
             ack=new ArmorAck(fields[1],fields[2]);return true;
         }
         public static string EncodeSnapshot(ArmorSnapshot snapshot)
+        {return EncodeSnapshot(snapshot,ArmorCatalog.LatestStyle);}
+
+        internal static string EncodeSnapshot(ArmorSnapshot snapshot,ArmorStyle latestStyle)
         {
             if(snapshot==null)throw new ArgumentNullException("snapshot");
             var text=new StringBuilder(Prefix).Append("S|").Append(snapshot.Epoch).Append('|')
@@ -183,12 +186,21 @@ namespace PlayerArmorMod
             for(int i=0;i<snapshot.Actors.Count;i++)
             {
                 if(i>0)text.Append(';');var actor=snapshot.Actors[i];
+                byte mask=actor.EquippedMask;
+                uint styles=actor.StyleBits;
+                if(latestStyle<ArmorCatalog.LatestStyle)
+                    for(int slot=0;slot<ArmorCatalog.SlotCount;slot++)
+                        if(ArmorCatalog.StyleAt(styles,(ArmorSlot)slot)>latestStyle)
+                        {
+                            mask=(byte)(mask&~(1<<slot));
+                            styles=ArmorCatalog.SetStyle(styles,(ArmorSlot)slot,ArmorStyle.Metal);
+                        }
                 text.Append(actor.ControllerId.ToString(CultureInfo.InvariantCulture)).Append(',')
                     .Append(actor.HarnessId.ToString(CultureInfo.InvariantCulture)).Append(',')
-                    .Append(actor.EquippedMask.ToString(CultureInfo.InvariantCulture)).Append(',')
-                    .Append(actor.StyleBits.ToString(CultureInfo.InvariantCulture)).Append(',');
-                for(int slot=0;slot<ArmorCatalog.SlotCount;slot++){if(slot>0)text.Append('.');text.Append(actor.Durability[slot].ToString(CultureInfo.InvariantCulture));}
-                text.Append(',');for(int slot=0;slot<ArmorCatalog.SlotCount;slot++){if(slot>0)text.Append('.');text.Append(actor.PickupIds[slot].ToString(CultureInfo.InvariantCulture));}
+                    .Append(mask.ToString(CultureInfo.InvariantCulture)).Append(',')
+                    .Append(styles.ToString(CultureInfo.InvariantCulture)).Append(',');
+                for(int slot=0;slot<ArmorCatalog.SlotCount;slot++){if(slot>0)text.Append('.');text.Append(((mask&(1<<slot))!=0?actor.Durability[slot]:0).ToString(CultureInfo.InvariantCulture));}
+                text.Append(',');for(int slot=0;slot<ArmorCatalog.SlotCount;slot++){if(slot>0)text.Append('.');text.Append(((mask&(1<<slot))!=0?actor.PickupIds[slot]:0u).ToString(CultureInfo.InvariantCulture));}
             }
             if(text.Length>MaxWireLength)throw new ArgumentException("Snapshot exceeds wire limit.","snapshot");
             return text.ToString();
@@ -212,12 +224,20 @@ namespace PlayerArmorMod
                 var values=entry.Split(',');uint controller,harness,mask,styles;
                 if(values.Length!=6||!TryUInt(values[0],out controller)||controller==0||!TryUInt(values[1],out harness)||harness==0
                     ||!TryUInt(values[2],out mask)||mask>ArmorCatalog.AllEquippedMask
-                    ||!TryUInt(values[3],out styles)||!ArmorCatalog.ValidStyles((byte)mask,styles))return false;
+                    ||!TryUInt(values[3],out styles))return false;
+                bool retiredHelmet=ArmorCatalog.IsRetiredHelmetStyle(ArmorCatalog.StyleAt(styles,ArmorSlot.Head));
+                if(retiredHelmet)
+                {
+                    if((mask&1u)==0)return false;
+                    styles=ArmorCatalog.SetStyle(styles,ArmorSlot.Head,ArmorStyle.Metal);
+                }
+                if(!ArmorCatalog.ValidStyles((byte)mask,styles))return false;
                 if(!entities.Add(controller)||!entities.Add(harness))return false;
                 var conditionParts=values[4].Split('.');if(conditionParts.Length!=ArmorCatalog.SlotCount)return false;var condition=new ushort[ArmorCatalog.SlotCount];
                 for(int slot=0;slot<condition.Length;slot++){uint v;if(!TryUInt(conditionParts[slot],out v)||v>1000||((mask&(1<<slot))==0&&v!=0))return false;condition[slot]=(ushort)v;}
                 var idParts=values[5].Split('.');if(idParts.Length!=ArmorCatalog.SlotCount)return false;var ids=new uint[ArmorCatalog.SlotCount];var unique=new HashSet<uint>();
                 for(int slot=0;slot<ids.Length;slot++)if(!TryUInt(idParts[slot],out ids[slot])||(ids[slot]!=0&&((mask&(1<<slot))==0||ids[slot]==controller||ids[slot]==harness||!unique.Add(ids[slot]))))return false;
+                if(retiredHelmet){mask&=~1u;condition[0]=0;ids[0]=0;}
                 actors.Add(new ArmorActorState(controller,harness,(byte)mask,ArmorCatalog.LeatherMaskOf(styles),condition,ids,styles));
             }
             snapshot=new ArmorSnapshot(fields[1],revision,actors);return true;

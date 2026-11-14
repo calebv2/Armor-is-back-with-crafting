@@ -83,8 +83,10 @@ namespace PlayerArmorMod
         // so their levels, nail arrays, identities and project saves stay intact.
         internal static ArmorRecipeSettings ActiveSettings(ArmorRecipeSettings settings)
         {
-            if(ArmorConstructionPlan.Layout(settings)!=2)return settings;
-            return new ArmorRecipeSettings{prefabName=settings.prefabName,layoutVersion=3,
+            uint layout=ArmorConstructionPlan.Layout(settings);
+            bool bucket=settings.prefabName==ArmorCatalog.WoodlandPieces[0].PrefabName&&(layout==2||layout==3);
+            if(!bucket&&layout!=2)return settings;
+            return new ArmorRecipeSettings{prefabName=settings.prefabName,layoutVersion=bucket?ArmorConstructionPlan.WoodlandBucketLayout:3,
                 ingredients=settings.ingredients.Select(i=>new ArmorIngredientSettings{code=i.code,material=i.material,quantity=i.quantity}).ToArray()};
         }
         static Recipe RegisterVersion(uint hash,string descriptor,bool authoritative=false)
@@ -100,16 +102,17 @@ namespace PlayerArmorMod
             CheckHash<GenericCraftingRecipe>(hash);
             var settings=ArmorCraftingRecipeCodec.Parse(descriptor);var basis=bases.SingleOrDefault(b=>b.Piece.PrefabName==settings.prefabName);
             if(basis==null)throw new InvalidDataException("Armor recipe arrived before registered armor templates");
-            var version=new Recipe{Piece=basis.Piece,Result=basis.Result,Mesh=basis.Mesh,Settings=settings,Descriptor=descriptor};
+            var mesh=ArmorConstructionPlan.Layout(settings)==ArmorConstructionPlan.WoodlandBucketLayout?basis.WoodlandBucketMesh:basis.Mesh;
+            var version=new Recipe{Piece=basis.Piece,Result=basis.Result,Mesh=mesh,Settings=settings,Descriptor=descriptor};
             var pieces=BuildPieces(version,settings);
             var recipe=ScriptableObject.CreateInstance<GenericCraftingRecipe>();recipe.name="Player Armor Recipe - "+settings.prefabName+" - "+hash;
             ArmorNative.Set(recipe,"hash",(int)hash);ArmorNative.Set(recipe,"resultHash",basis.Result.Hash);ArmorNative.Set(recipe,"pieces",pieces);
             ArmorNative.Set(recipe,"spawnOffset",new SerializedTransform{position=new Vector3(0,.35f,0),rotation=Quaternion.identity,scale=Vector3.one});
             ArmorNative.Set(recipe,"uniqueGlyphs",new Glyph.Positioning[0]);
             bool publish=!ArmorCatalog.IsChestOnly(basis.Piece.Style);
-            if(publish)ArmorRecipeBookIntegration.ValidateRegistration(recipe);
+            if(publish)ArmorRecipeBookIntegration.ValidateRegistration(recipe,basis.Piece);
             AddValue(recipe);version.Native=recipe;versions.Add(hash,version);
-            if(publish)ArmorRecipeBookIntegration.Register(recipe);
+            if(publish)ArmorRecipeBookIntegration.Register(recipe,basis.Piece);
             if(authoritative)confirmedVersions.Add(hash);
             ArmorNative.Field(typeof(GenericCraftingRecipe),"mappedResult").SetValue(null,null);return version;
         }
@@ -231,7 +234,6 @@ namespace PlayerArmorMod
                 UpdateWorkshopRefunds();
                 return;
             }
-            ArmorCraftingJig.Update();
             if(retiredVersions.Count==0||Time.unscaledTime<nextRetiredCollection)return;
             nextRetiredCollection=Time.unscaledTime+2;CollectRetired();
         }

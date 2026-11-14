@@ -74,7 +74,7 @@ namespace PlayerArmorMod
             }
         }
 
-        static Material FindSource(GameObject template)
+        internal static Material FindSource(GameObject template)
         {
             if(template==null)return null;
             foreach(var sourceRenderer in template.GetComponentsInChildren<Renderer>(true))

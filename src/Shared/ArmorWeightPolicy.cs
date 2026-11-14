@@ -6,12 +6,19 @@ namespace PlayerArmorMod
     {
         internal static float BaseWeight(ArmorStyle style, ArmorSlot slot)
         {
+            if (ArmorCatalog.IsStandaloneHelmet(style))
+            {
+                if (slot != ArmorSlot.Head) throw new ArgumentOutOfRangeException(nameof(slot));
+                return style==ArmorStyle.NewsboyHelmet?.5f:1.5f;
+            }
             float setWeight;
             switch (style)
             {
                 case ArmorStyle.Metal: setWeight = 14f; break;
+                case ArmorStyle.Forgeguard: setWeight = 24f; break;
                 case ArmorStyle.Hebios: setWeight = 12f; break;
-                case ArmorStyle.Wyrm: setWeight = 9f; break;
+                case ArmorStyle.Wyrm:
+                case ArmorStyle.CrystalWyrm: setWeight = 9f; break;
                 case ArmorStyle.Woodland: setWeight = 8f; break;
                 case ArmorStyle.Leather: setWeight = 6f; break;
                 case ArmorStyle.Mushroom: setWeight = 5f; break;

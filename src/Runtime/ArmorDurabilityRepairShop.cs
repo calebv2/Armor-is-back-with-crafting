@@ -36,8 +36,8 @@ namespace PlayerArmorMod
             var assets=Core.Instance==null?null:Core.Instance.Assets;
             if(assets==null||!assets.Ready||pickup==null||pickup.Entity==null||pickup.Entity.Prefab==null||pickup.Item==null||pickup.DurabilityModule==null)return false;
             var marker=pickup.GetComponent<ArmorPickup>();
-            if(marker==null||!ArmorCatalog.IsValidStyle(marker.Style)||!ArmorCatalog.IsValidSlot((ArmorSlot)marker.Slot)||marker.GetComponent<DurabilityModule>()!=pickup.DurabilityModule)return false;
-            var expected=assets.PiecesFor(marker.Style)[marker.Slot];
+            if(marker==null||(uint)marker.Slot>=ArmorCatalog.SlotCount||marker.GetComponent<DurabilityModule>()!=pickup.DurabilityModule)return false;
+            var expected=assets.PrefabFor(marker.Style,(ArmorSlot)marker.Slot);
             return expected!=null&&pickup.Entity.Prefab.Hash==expected.Hash&&pickup.Item.Hash==expected.Hash;
         }
         static void AdmitArmor(Pickup pickup,ref bool __result)

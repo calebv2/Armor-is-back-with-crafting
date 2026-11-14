@@ -19,8 +19,32 @@ namespace PlayerArmorMod
         public Item[] HebiosItems;
         public Item[] MushroomItems;
         public Item[] WyrmItems;
+        public Item[] CrystalWyrmItems;
+        public Item[] ForgeguardItems;
+        public Item[] StandaloneHelmetItems;
+        internal Item ItemFor(ArmorStyle style,ArmorSlot slot)
+        {
+            if(!ArmorCatalog.IsValidStyle(style,slot))return null;
+            bool standalone=ArmorCatalog.IsStandaloneHelmet(style);
+            var items=standalone?StandaloneHelmetItems:ItemsFor(style);
+            int index=standalone?ArmorCatalog.HelmetIndex(style):(int)slot;
+            return items!=null&&index<items.Length?items[index]:null;
+        }
         public Item[] ItemsFor(ArmorStyle style)
-        {switch(style){case ArmorStyle.Metal:return AllowedItems;case ArmorStyle.Leather:return LeatherItems;case ArmorStyle.Woodland:return WoodlandItems;case ArmorStyle.Hebios:return HebiosItems;case ArmorStyle.Mushroom:return MushroomItems;case ArmorStyle.Wyrm:return WyrmItems;default:return null;}}
+        {
+            switch(style)
+            {
+                case ArmorStyle.Metal:return AllowedItems;
+                case ArmorStyle.Leather:return LeatherItems;
+                case ArmorStyle.Woodland:return WoodlandItems;
+                case ArmorStyle.Hebios:return HebiosItems;
+                case ArmorStyle.Mushroom:return MushroomItems;
+                case ArmorStyle.Wyrm:return WyrmItems;
+                case ArmorStyle.CrystalWyrm:return CrystalWyrmItems;
+                case ArmorStyle.Forgeguard:return ForgeguardItems;
+                default:return null;
+            }
+        }
         public uint StyleBits
         {
             get
@@ -30,7 +54,7 @@ namespace PlayerArmorMod
                 {
                     var dock=Docks[i];var pickup=dock==null||dock.QuantityStored<=0||!dock.HasDockedPickup?null:dock.DockedPickup;
                     if(pickup==null)continue;
-                    var style=MatchesItem(WyrmItems,i,pickup.Item)?ArmorStyle.Wyrm:MatchesItem(LeatherItems,i,pickup.Item)?ArmorStyle.Leather:MatchesItem(WoodlandItems,i,pickup.Item)?ArmorStyle.Woodland:MatchesItem(HebiosItems,i,pickup.Item)?ArmorStyle.Hebios:MatchesItem(MushroomItems,i,pickup.Item)?ArmorStyle.Mushroom:ArmorStyle.Metal;
+                    var style=StyleForItem(i,pickup.Item)??ArmorStyle.Metal;
                     result=ArmorCatalog.SetStyle(result,(ArmorSlot)i,style);
                 }
                 return result;
@@ -86,8 +110,10 @@ namespace PlayerArmorMod
                 throw new InvalidOperationException("Equipment persistence requires seven registered item slots.");
             if(LeatherItems!=null&&LeatherItems.Length!=ArmorCatalog.SlotCount)
                 throw new InvalidOperationException("Leather persistence requires seven registered item slots.");
-            foreach(var items in new[]{WoodlandItems,HebiosItems,MushroomItems,WyrmItems})
+            foreach(var items in new[]{WoodlandItems,HebiosItems,MushroomItems,WyrmItems,CrystalWyrmItems,ForgeguardItems})
                 if(items!=null&&items.Length!=ArmorCatalog.SlotCount)throw new InvalidOperationException("Armor family persistence requires seven registered item slots.");
+            if(StandaloneHelmetItems!=null&&StandaloneHelmetItems.Length!=ArmorCatalog.StandaloneHelmets.Count)
+                throw new InvalidOperationException("Incomplete standalone helmet registration.");
             for(int i=0;i<Docks.Length;i++)
             {
                 int slot=i;var dock=Docks[i];if(dock==null||AllowedItems[i]==null)throw new InvalidOperationException("Incomplete armor slot "+i);
@@ -222,7 +248,20 @@ namespace PlayerArmorMod
             allowed=transactionDummy?WithinDummyReach(pickup,transactionAnchor):WithinBodyReach(slot,pickup);
         }
         bool Matches(int slot,Pickup pickup)
-        {return pickup!=null&&(MatchesItem(AllowedItems,slot,pickup.Item)||MatchesItem(LeatherItems,slot,pickup.Item)||MatchesItem(WoodlandItems,slot,pickup.Item)||MatchesItem(HebiosItems,slot,pickup.Item)||MatchesItem(MushroomItems,slot,pickup.Item)||MatchesItem(WyrmItems,slot,pickup.Item));}
+        {return pickup!=null&&StyleForItem(slot,pickup.Item).HasValue;}
+        ArmorStyle? StyleForItem(int slot,Item item)
+        {
+            if(slot==(int)ArmorSlot.Head&&StandaloneHelmetItems!=null)
+                for(int i=0;i<StandaloneHelmetItems.Length;i++)
+                    if(MatchesItem(StandaloneHelmetItems,i,item))return ArmorCatalog.StandaloneHelmets[i].Style;
+            if(MatchesItem(ForgeguardItems,slot,item))return ArmorStyle.Forgeguard;
+            for(int index=0;index<=(int)ArmorStyle.CrystalWyrm;index++)
+            {
+                var style=(ArmorStyle)index;
+                if(MatchesItem(ItemsFor(style),slot,item))return style;
+            }
+            return null;
+        }
         static bool MatchesItem(Item[] items,int slot,Item item)
         {return items!=null&&slot>=0&&slot<items.Length&&items[slot]!=null&&item!=null&&item.Hash==items[slot].Hash;}
         bool ReleasedByOwner(Pickup pickup)
