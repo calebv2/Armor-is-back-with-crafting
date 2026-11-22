@@ -16,11 +16,18 @@ namespace PlayerArmorMod
 {
     internal sealed class ArmorPrefabRegistry
     {
+        const string SalletAddonName = "Sallet Helmet Addon";
+        const string SalletAddonAuthor = "ATT";
+        const string SalletPrefabPath = "assets/sallet/att_sallet_helmet.prefab";
+
         internal GameObject VisualTemplate {get;private set;}
         internal GameObject WyrmTemplate {get;private set;}
         internal GameObject CrystalWyrmTemplate {get;private set;}
+        internal GameObject FireWyrmTemplate => fireWyrmArt?.Template ?? CrystalWyrmTemplate;
+        internal GameObject PhantomTemplate => phantomArt?.Template;
         internal GameObject ForgeguardTemplate {get;private set;}
         internal GameObject StandaloneHelmetsTemplate {get;private set;}
+        internal GameObject SalletTemplate {get;private set;}
         internal NetworkPrefab Harness {get;private set;}
         internal readonly NetworkPrefab[] Pieces=new NetworkPrefab[ArmorCatalog.SlotCount];
         internal readonly NetworkPrefab[] LeatherPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
@@ -30,6 +37,8 @@ namespace PlayerArmorMod
         internal readonly NetworkPrefab[] WyrmPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
         internal readonly NetworkPrefab[] ForgeguardPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
         internal readonly NetworkPrefab[] CrystalWyrmPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
+        internal readonly NetworkPrefab[] PhantomPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
+        internal readonly NetworkPrefab[] FireWyrmPieces=new NetworkPrefab[ArmorCatalog.SlotCount];
         internal readonly NetworkPrefab[] StandaloneHelmets=new NetworkPrefab[ArmorCatalog.StandaloneHelmets.Count];
         internal NetworkPrefab PrefabFor(ArmorStyle style,ArmorSlot slot)
         {
@@ -49,12 +58,18 @@ namespace PlayerArmorMod
                 case ArmorStyle.Mushroom:return MushroomPieces;
                 case ArmorStyle.Wyrm:return WyrmPieces;
                 case ArmorStyle.CrystalWyrm:return CrystalWyrmPieces;
+                case ArmorStyle.FireWyrm:return FireWyrmPieces;
+                case ArmorStyle.Phantom:return PhantomPieces;
                 case ArmorStyle.Forgeguard:return ForgeguardPieces;
                 default:throw new ArgumentOutOfRangeException("style");
             }
         }
         internal bool Ready {get;private set;}
+        static readonly PropertyInfo SyncRegistry = typeof(NetworkPrefabRegistry).GetProperty("Registry", BindingFlags.Static | BindingFlags.NonPublic);
         readonly MelonMod mod;bool loading,attempted;
+        MelonMod salletOwner;
+        FireWyrmArmorArt fireWyrmArt;
+        PhantomArmorArt phantomArt;
         internal ArmorPrefabRegistry(MelonMod owner){mod=owner;}
         internal void Subscribe(){NetworkPrefabRegistry.RegisterPrefabs+=Register;}
         internal void Preload(){if(loading)return;loading=true;MelonCoroutines.Start(Load());}
@@ -83,6 +98,8 @@ namespace PlayerArmorMod
                 CrystalWyrmTemplate=LoadArt("PlayerArmor.CrystalWyrm","assets/crystalwyrmshell/att_crystalwyrmcarapace_visuals.prefab");
                 ForgeguardTemplate=LoadArt("PlayerArmor.Forgeguard","assets/forgeguard/att_forgeguard_visuals.prefab");
                 StandaloneHelmetsTemplate=LoadArt("PlayerArmor.StandaloneHelmets","assets/standalonehelmets/att_standalone_helmets.prefab");
+                phantomArt=new PhantomArmorArt(ForgeguardTemplate,WyrmTemplate);
+                if(!Core.IsServer)fireWyrmArt=new FireWyrmArmorArt(CrystalWyrmTemplate);
             }
             catch(Exception error){Core.Error("PLAYER_ARMOR_ASSET_FAILED "+error);yield break;}
             if(!Core.IsServer)
@@ -93,11 +110,37 @@ namespace PlayerArmorMod
                 ArmorStereo.Configure(ForgeguardTemplate);
                 ArmorStereo.Configure(StandaloneHelmetsTemplate);
             }
+            LoadSalletAddon();
             Core.Log("PLAYER_ARMOR_ART_READY "+ArmorCatalog.AllPieces.Count+" items, seven body slots");
         }
-        static GameObject LoadArt(string resource,string prefabPath)
+
+        void LoadSalletAddon()
         {
-            using(var stream=Assembly.GetExecutingAssembly().GetManifestResourceStream(resource))
+            salletOwner=MelonMod.RegisteredMelons.FirstOrDefault(addon =>
+                addon.Info.Name==SalletAddonName && addon.Info.Author==SalletAddonAuthor);
+            if(salletOwner==null)return;
+
+            try
+            {
+                SalletTemplate=LoadArt("SalletHelmet.Model",SalletPrefabPath,salletOwner.GetType().Assembly);
+                var definition=ArmorCatalog.Get(ArmorStyle.SalletHelmet,ArmorSlot.Head);
+                var worn=SalletTemplate.transform.Find(definition.ArtRootName);
+                if(worn==null || worn.GetComponentsInChildren<MeshRenderer>(true).Length!=1 ||
+                    worn.GetComponentsInChildren<MonoBehaviour>(true).Length!=0)
+                    throw new InvalidDataException("Missing or invalid worn Sallet mesh");
+                ValidatePickupArt(definition);
+                if(!Core.IsServer)ArmorStereo.Configure(SalletTemplate);
+            }
+            catch(Exception error)
+            {
+                SalletTemplate=null;
+                Core.Error("PLAYER_ARMOR_SALLET_ADDON_FAILED "+error.GetBaseException().Message);
+            }
+        }
+
+        static GameObject LoadArt(string resource,string prefabPath,Assembly source=null)
+        {
+            using(var stream=(source??Assembly.GetExecutingAssembly()).GetManifestResourceStream(resource))
             {
                 if(stream==null)throw new InvalidDataException("Missing art bundle "+resource);
                 var bundle=AssetBundle.LoadFromStream(stream);
@@ -116,14 +159,15 @@ namespace PlayerArmorMod
             if(attempted)return;attempted=true;
             try
             {
-                if(VisualTemplate==null||WyrmTemplate==null||CrystalWyrmTemplate==null||StandaloneHelmetsTemplate==null||ForgeguardTemplate==null)
+                if(VisualTemplate==null||WyrmTemplate==null||CrystalWyrmTemplate==null||StandaloneHelmetsTemplate==null||ForgeguardTemplate==null||PhantomTemplate==null)
                     throw new InvalidOperationException("Armor preload did not finish before SyncLib registration");
                 ArmorCraftingJigPlans.VerifyEmbedded();
                 ArmorRecipeBookIntegration.CreateWorkshopCollection();
                 // Fail before registering any network identity if a pickup proxy
                 // was exported incorrectly. Worn skins use native character
                 // bones and are never valid loose-pickup physics geometry.
-                foreach(var definition in ArmorCatalog.AllPieces)ValidatePickupArt(definition);
+                foreach(var definition in ArmorCatalog.AllPieces)
+                    if(definition.Style!=ArmorStyle.SalletHelmet)ValidatePickupArt(definition);
                 var staging=new GameObject("Player Armor templates - not placed objects");staging.SetActive(false);Object.DontDestroyOnLoad(staging);
                 // A fixed native donor supplies the native pickup/interaction implementation.
                 var donor=PrefabManager.AllPrefabs.FirstOrDefault(p=>p!=null&&p.Hash==61648u&&p.GetComponent<Pickup>()!=null);
@@ -181,15 +225,14 @@ namespace PlayerArmorMod
                 try { workshop=ArmorWorkshopPrefabs.Register(mod,staging,stand); }
                 catch(Exception error) { Core.Error("PLAYER_ARMOR_WORKSHOP_REGISTRATION_FAILED "+error); }
                 // Append the new family after every existing saved prefab.
-                var crystalWyrmItems=new Item[ArmorCatalog.SlotCount];
-                foreach(var definition in ArmorCatalog.CrystalWyrmPieces)
-                    crystalWyrmItems[(int)definition.Slot]=RegisterPiece(staging,donor,definition,CrystalWyrmPieces);
-                harness.CrystalWyrmItems=crystalWyrmItems;
-                for(int i=0;i<ArmorCatalog.SlotCount;i++)harness.Docks[i].Settings.IncludedItems.Add(crystalWyrmItems[i]);
-                if(stand!=null)ArmorStandDocks.AddFamily(stand,CrystalWyrmPieces);
+                var advertised = AdvertisedPrefabs();
+                harness.CrystalWyrmItems = RegisterExpansion(staging, donor, ArmorCatalog.CrystalWyrmPieces,
+                    CrystalWyrmPieces, harness, stand, advertised);
                 var helmets=new Item[StandaloneHelmets.Length];
                 foreach(var definition in ArmorCatalog.StandaloneHelmets)
                 {
+                    if(definition.Style==ArmorStyle.SalletHelmet)continue;
+                    if(!KnownToServer(definition,advertised))continue;
                     int i=ArmorCatalog.HelmetIndex(definition.Style);
                     helmets[i]=RegisterPiece(staging,donor,definition,StandaloneHelmets,i);
                     harness.Docks[(int)ArmorSlot.Head].Settings.IncludedItems.Add(helmets[i]);
@@ -197,29 +240,35 @@ namespace PlayerArmorMod
                 }
                 harness.StandaloneHelmetItems=helmets;
                 // Append after all published identities. Existing worlds keep their item hashes.
-                var forgeguardItems=new Item[ArmorCatalog.SlotCount];
-                foreach(var definition in ArmorCatalog.ForgeguardPieces)
-                    forgeguardItems[(int)definition.Slot]=RegisterPiece(staging,donor,definition,ForgeguardPieces);
-                harness.ForgeguardItems=forgeguardItems;
-                for(int i=0;i<ArmorCatalog.SlotCount;i++)harness.Docks[i].Settings.IncludedItems.Add(forgeguardItems[i]);
-                if(stand!=null)ArmorStandDocks.AddFamily(stand,ForgeguardPieces);
-                ArmorCrafting.RegisterBatch(Core.Instance,staging,this,ArmorCatalog.ForgeguardPieces,true);
-                Ready=true;Core.Log("PLAYER_ARMOR_REGISTERED harness="+Harness.Hash+" sockets=7 items="+ArmorCatalog.AllPieces.Count+" protection=native durability=native");
+                harness.ForgeguardItems = RegisterExpansion(staging, donor, ArmorCatalog.ForgeguardPieces,
+                    ForgeguardPieces, harness, stand, advertised);
+                var forgeguardRecipes = ArmorCatalog.ForgeguardPieces.Where(definition =>
+                    ForgeguardPieces[(int)definition.Slot] != null &&
+                    (advertised == null || advertised.Contains(RegistryKey(ArmorCraftingPlan.PageName(definition)))));
+                ArmorCrafting.RegisterBatch(Core.Instance,staging,this,forgeguardRecipes,true);
+                harness.FireWyrmItems = RegisterExpansion(staging, donor, ArmorCatalog.FireWyrmPieces,
+                    FireWyrmPieces, harness, stand, advertised);
+                harness.PhantomItems = RegisterExpansion(staging, donor, ArmorCatalog.PhantomPieces,
+                    PhantomPieces, harness, stand, advertised);
+                RegisterSallet(staging, donor, harness, stand);
+                Ready=true;Core.Log("PLAYER_ARMOR_REGISTERED harness="+Harness.Hash+" sockets=7 items="+
+                    ArmorCatalog.AllPieces.Count(definition=>PrefabFor(definition.Style,definition.Slot)!=null)+
+                    " protection=native durability=native");
                 if(Core.IsServer)
                 {
                     try
                     {
                         string path=Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor");Directory.CreateDirectory(path);
-                        var names=ArmorCatalog.AllPieces.Select(definition=>
+                        var names=ArmorCatalog.AllPieces.Where(definition=>PrefabFor(definition.Style,definition.Slot)!=null).Select(definition=>
                         {
                             string loot="";
                             if(ArmorCatalog.IsChestOnly(definition.Style))loot=", world chest loot";
                             else if(definition.Style==ArmorStyle.Wyrm)loot=", regular Wyrm kill loot";
                             else if(definition.Style==ArmorStyle.CrystalWyrm)loot=", Crystal Wyrm kill loot";
+                            else if(definition.Style==ArmorStyle.FireWyrm)loot=", Fire Wyrm kill loot";
                             else if(definition.Style==ArmorStyle.NewsboyHelmet||definition.Style==ArmorStyle.BucketHelmet||definition.Style==ArmorStyle.CauldronHelmet)loot=", world chest loot";
                             else if(definition.Style==ArmorStyle.SpriggullFullHelmet)loot=", Spriggull kill loot";
-                            var prefab=ArmorCatalog.IsStandaloneHelmet(definition.Style)
-                                ? StandaloneHelmets[ArmorCatalog.HelmetIndex(definition.Style)] : PiecesFor(definition.Style)[(int)definition.Slot];
+                            var prefab=PrefabFor(definition.Style,definition.Slot);
                             return definition.PrefabName+" #"+prefab.Hash+" ("+definition.Style+" "+definition.Slot+loot+")";
                         }).ToList();
                         if(stand!=null)names.Add(ArmorStandPrefab.Name+" #"+stand.Hash+" (Armor stand)");
@@ -231,12 +280,81 @@ namespace PlayerArmorMod
             }
             catch(Exception error){Ready=false;Core.Error("PLAYER_ARMOR_REGISTRATION_FAILED "+error);}
         }
-        Item RegisterPiece(GameObject staging,NetworkPrefab donor,ArmorPieceDefinition definition,NetworkPrefab[] destination,int? index=null)
+
+        string RegistryKey(string name,MelonMod owner=null) => name + " (" + (owner??mod).Info.Name + ")";
+
+        HashSet<string> AdvertisedPrefabs(MelonMod owner=null)
+        {
+            if(Core.IsServer)return null;
+            var registry=SyncRegistry?.GetValue(null) as HashRegistryFile;
+            if(registry==null)throw new InvalidOperationException("SyncLib did not provide the server prefab registry");
+            owner=owner??mod;
+            var own=registry.Mods.FirstOrDefault(entry=>entry.ModId==owner.Info.Name+"."+owner.Info.Author);
+            return new HashSet<string>(own==null ? Enumerable.Empty<string>() : own.ItemHashes.Keys, StringComparer.Ordinal);
+        }
+
+        bool KnownToServer(ArmorPieceDefinition definition,HashSet<string> advertised) =>
+            advertised==null || advertised.Contains(RegistryKey(definition.PrefabName));
+
+        void RegisterSallet(GameObject staging,NetworkPrefab donor,ArmorHarness harness,NetworkPrefab stand)
+        {
+            if(SalletTemplate==null)return;
+            var definition=ArmorCatalog.Get(ArmorStyle.SalletHelmet,ArmorSlot.Head);
+            var advertised=AdvertisedPrefabs(salletOwner);
+            if(advertised!=null && !advertised.Contains(RegistryKey(definition.PrefabName,salletOwner)))return;
+
+            try
+            {
+                int index=ArmorCatalog.HelmetIndex(definition.Style);
+                var item=RegisterPiece(staging,donor,definition,StandaloneHelmets,index,salletOwner);
+                harness.StandaloneHelmetItems[index]=item;
+                harness.Docks[(int)ArmorSlot.Head].Settings.IncludedItems.Add(item);
+                if(stand!=null)ArmorStandDocks.AddPiece(stand,(int)ArmorSlot.Head,StandaloneHelmets[index]);
+            }
+            catch(Exception error)
+            {Core.Error("PLAYER_ARMOR_SALLET_ADDON_REGISTRATION_FAILED "+error.GetBaseException().Message);}
+        }
+
+        internal void Dispose()
+        {
+            NetworkPrefabRegistry.RegisterPrefabs-=Register;
+            fireWyrmArt?.Dispose();
+            phantomArt?.Dispose();
+        }
+
+        Item[] RegisterExpansion(GameObject staging,NetworkPrefab donor,IEnumerable<ArmorPieceDefinition> definitions,
+            NetworkPrefab[] prefabs,ArmorHarness harness,NetworkPrefab stand,HashSet<string> advertised)
+        {
+            var items=new Item[ArmorCatalog.SlotCount];
+            foreach(var definition in definitions)
+            {
+                if(!KnownToServer(definition,advertised))continue;
+                int slot=(int)definition.Slot;
+                items[slot]=RegisterPiece(staging,donor,definition,prefabs);
+                harness.Docks[slot].Settings.IncludedItems.Add(items[slot]);
+                if(stand!=null)ArmorStandDocks.AddPiece(stand,slot,prefabs[slot],StandPose(definition));
+            }
+            return items;
+        }
+
+        Pose? StandPose(ArmorPieceDefinition piece)
+        {
+            if (piece.Style == ArmorStyle.Phantom) return phantomArt.StandPoses[(int)piece.Slot];
+            if (piece.Style != ArmorStyle.Forgeguard ||
+                (piece.Slot != ArmorSlot.LeftForearm && piece.Slot != ArmorSlot.RightForearm)) return null;
+
+            // The gauntlet pickup was baked around the posed forearm pivot,
+            // using the workbench axes. Recover the actual forearm bind frame.
+            var bind = ForgeguardTemplate.transform.Find(piece.ArtRootName + "/OriginalSourceBones/" + piece.BoneName);
+            var rotation = Quaternion.Inverse(bind.localRotation) * ArmorCraftingMesh.WorkbenchRotation(piece.Slot);
+            return new Pose(Vector3.zero, rotation);
+        }
+        Item RegisterPiece(GameObject staging,NetworkPrefab donor,ArmorPieceDefinition definition,NetworkPrefab[] destination,int? index=null,MelonMod owner=null)
         {
             var template=BuildPickup(staging,donor,definition);
-            var prefab=mod.RegisterCustomPrefab(template,definition.PrefabName);
+            var prefab=(owner??mod).RegisterCustomPrefab(template,definition.PrefabName);
             if(prefab==null)throw new InvalidOperationException("SyncLib refused "+definition.PrefabName);
-            if(ArmorCatalog.IsWyrmStyle(definition.Style)||ArmorCatalog.IsStandaloneHelmet(definition.Style))
+            if(ArmorCatalog.IsWyrmStyle(definition.Style)||ArmorCatalog.IsStandaloneHelmet(definition.Style)||definition.Style==ArmorStyle.Phantom)
                 ArmorNative.Set(prefab,"canBeSpawnedThroughCommand",true);
             if(ArmorCatalog.IsChestOnly(definition.Style))prefab.DisableSpawnThroughCommands();
             if(template.GetComponent<NetworkRigidbody>()==null)throw new InvalidOperationException("SyncLib did not add armor NetworkRigidbody");
@@ -305,6 +423,9 @@ namespace PlayerArmorMod
             if(definition.Style==ArmorStyle.Forgeguard)template=ForgeguardTemplate;
             else if(definition.Style==ArmorStyle.Wyrm)template=WyrmTemplate;
             else if(definition.Style==ArmorStyle.CrystalWyrm)template=CrystalWyrmTemplate;
+            else if(definition.Style==ArmorStyle.FireWyrm)template=FireWyrmTemplate;
+            else if(definition.Style==ArmorStyle.Phantom)template=PhantomTemplate;
+            else if(definition.Style==ArmorStyle.SalletHelmet)template=SalletTemplate;
             else if(ArmorCatalog.IsStandaloneHelmet(definition.Style)||
                 (definition.Style==ArmorStyle.Woodland&&definition.Slot==ArmorSlot.Head))template=StandaloneHelmetsTemplate;
             var group=template==null?null:template.transform.Find(path);

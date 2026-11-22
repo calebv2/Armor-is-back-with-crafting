@@ -12,6 +12,7 @@ namespace PlayerArmorMod
     internal static class WyrmArmorLoot
     {
         internal const int KillsPerDropOnAverage = 20;
+        internal const int FireKillsPerDropOnAverage = 100;
         const uint RegularWyrmHash = 21642;
         const uint RegularTrialWyrmHash = 6004;
         const uint CrystalWyrmHash = 37392;
@@ -22,6 +23,8 @@ namespace PlayerArmorMod
         static readonly MethodInfo after = AccessTools.Method(typeof(WyrmArmorLoot), nameof(AfterDeath));
         static HarmonyLib.Harmony patchOwner;
         static ArmorPrefabRegistry assets;
+        static Func<NetworkEntity, bool> fireWyrmCheck;
+        static bool fireIntegrationFailed;
 
         struct DeathDrop
         {
@@ -29,6 +32,7 @@ namespace PlayerArmorMod
             internal Chunk Chunk;
             internal Vector3 Position;
             internal uint Identifier, PrefabHash;
+            internal int KillsPerDrop;
         }
 
         internal static void Install(HarmonyLib.Harmony harmony, ArmorPrefabRegistry registry)
@@ -39,7 +43,7 @@ namespace PlayerArmorMod
                 patchOwner = harmony;
                 assets = registry;
                 string chance = (100d / KillsPerDropOnAverage).ToString("0.##", CultureInfo.InvariantCulture);
-                Core.Log("PLAYER_ARMOR_WYRM_LOOT_READY chance=" + chance + "%");
+                Core.Log("PLAYER_ARMOR_WYRM_LOOT_READY chance=" + chance + "% fireChance=1%");
             }
             catch (Exception error)
             {
@@ -50,6 +54,8 @@ namespace PlayerArmorMod
         internal static void Dispose()
         {
             assets = null;
+            fireWyrmCheck = null;
+            fireIntegrationFailed = false;
             if (patchOwner == null) return;
             patchOwner.Unpatch(death, before);
             patchOwner.Unpatch(death, after);
@@ -76,6 +82,7 @@ namespace PlayerArmorMod
 
             uint hash = entity.Prefab.Hash;
             NetworkPrefab[] pieces;
+            int killsPerDrop = KillsPerDropOnAverage;
             switch (hash)
             {
                 case RegularWyrmHash:
@@ -83,8 +90,12 @@ namespace PlayerArmorMod
                     pieces = assets.WyrmPieces;
                     break;
                 case CrystalWyrmHash:
-                case CrystalTrialWyrmHash:
                     pieces = assets.CrystalWyrmPieces;
+                    break;
+                case CrystalTrialWyrmHash:
+                    bool fire = IsFireWyrm(entity);
+                    pieces = fire ? assets.FireWyrmPieces : assets.CrystalWyrmPieces;
+                    if (fire) killsPerDrop = FireKillsPerDropOnAverage;
                     break;
                 default:
                     Core.Log("PLAYER_ARMOR_WYRM_CHECK skipped=unrecognized_prefab prefab=" + hash);
@@ -97,7 +108,33 @@ namespace PlayerArmorMod
                 return;
             }
             __state = new DeathDrop { Pieces = pieces, Chunk = chunk,
-                Position = entity.transform.position + Vector3.up * .35f, Identifier = entity.Identifier, PrefabHash = hash };
+                Position = entity.transform.position + Vector3.up * .35f, Identifier = entity.Identifier,
+                PrefabHash = hash, KillsPerDrop = killsPerDrop };
+        }
+
+        static bool IsFireWyrm(NetworkEntity entity)
+        {
+            if (fireIntegrationFailed) return false;
+            try
+            {
+                if (fireWyrmCheck == null)
+                {
+                    // The monster shares the native trial prefab with ordinary
+                    // Trial Wyrms. Use Extended Televator's exact classifier.
+                    var type = AccessTools.TypeByName("Televator200.FireWyrms");
+                    if (type == null) return false;
+                    var method = AccessTools.DeclaredMethod(type, "IsFireWyrm", new[] { typeof(NetworkEntity) });
+                    if (method == null) return false;
+                    fireWyrmCheck = (Func<NetworkEntity, bool>)Delegate.CreateDelegate(typeof(Func<NetworkEntity, bool>), method);
+                }
+                return fireWyrmCheck(entity);
+            }
+            catch (Exception error)
+            {
+                fireIntegrationFailed = true;
+                Core.Error("PLAYER_ARMOR_FIRE_WYRM_CLASSIFIER_FAILED " + error.GetBaseException().Message);
+                return false;
+            }
         }
 
         static void AfterDeath(Wyrm __instance, DeathDrop __state)
@@ -108,8 +145,9 @@ namespace PlayerArmorMod
                 Core.Log("PLAYER_ARMOR_WYRM_CHECK skipped=still_alive_after_death");
                 return;
             }
-            int slot = RollSlot(random);
-            Core.Log("PLAYER_ARMOR_WYRM_ROLL wyrm=" + __state.Identifier + " prefab=" + __state.PrefabHash + " result=" + (slot < 0 ? "no_drop" : "drop"));
+            int slot = RollSlot(random, __state.KillsPerDrop);
+            Core.Log("PLAYER_ARMOR_WYRM_ROLL wyrm=" + __state.Identifier + " prefab=" + __state.PrefabHash +
+                " odds=1/" + __state.KillsPerDrop + " result=" + (slot < 0 ? "no_drop" : "drop"));
             if (slot < 0) return;
             var prefab = __state.Pieces[slot];
             if (prefab == null) { Core.Error("PLAYER_ARMOR_WYRM_LOOT_FAILED missing armor prefab slot=" + slot); return; }
@@ -125,9 +163,9 @@ namespace PlayerArmorMod
             }
         }
 
-        internal static int RollSlot(System.Random rng)
+        internal static int RollSlot(System.Random rng, int killsPerDrop = KillsPerDropOnAverage)
         {
-            return rng.Next(KillsPerDropOnAverage) == 0 ? rng.Next(ArmorCatalog.SlotCount) : -1;
+            return rng.Next(killsPerDrop) == 0 ? rng.Next(ArmorCatalog.SlotCount) : -1;
         }
     }
 }

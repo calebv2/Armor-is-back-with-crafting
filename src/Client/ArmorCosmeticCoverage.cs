@@ -13,9 +13,17 @@ namespace PlayerArmorMod
 {
     internal static class ArmorCosmeticCoverage
     {
+        const uint HeadMask = 1u << (int)ArmorSlot.Head;
+        const uint ChestMask = 1u << (int)ArmorSlot.Chest;
+        const uint SleeveMask = (1u << (int)ArmorSlot.LeftShoulder) | (1u << (int)ArmorSlot.RightShoulder) |
+            (1u << (int)ArmorSlot.LeftForearm) | (1u << (int)ArmorSlot.RightForearm);
+
         sealed class Coverage
         {
             internal uint Mask;
+            internal uint[] BoneRegions;
+            internal readonly List<Mesh> SkinMeshes = new List<Mesh>();
+            internal ArmorCosmeticShell Body;
             internal readonly ArmorCosmeticShell[] Shells = new ArmorCosmeticShell[PlayerArmorRigBinding.SlotCount];
             internal readonly Dictionary<(Mesh, uint), Mesh> Fitted = new Dictionary<(Mesh, uint), Mesh>();
 
@@ -82,6 +90,14 @@ namespace PlayerArmorMod
             return null;
         }
 
+        internal static void SetRig(CosmeticPacker packer, Dictionary<Transform, int> bones, int bindPoseCount)
+        {
+            if (harmony == null || packer == null || bones == null) return;
+            var coverage = packers.GetValue(packer, _ => new Coverage());
+            coverage.BoneRegions = ArmorGarmentFit.BoneRegions(bones, bindPoseCount);
+            coverage.ClearFitted();
+        }
+
         internal static void Set(CosmeticPacker packer, uint mask, ArmorCosmeticShell[] shells)
         {
             if (harmony == null || packer == null) return;
@@ -145,6 +161,7 @@ namespace PlayerArmorMod
         {
             if (map == null || parts == null || cancellation.IsCancellationRequested) return;
             Dictionary<CosmeticPacker.PartId, ICosmeticMeshPartBase> fittedMap = null;
+            Coverage checkedBody = null;
             foreach (var input in parts)
             {
                 if (input?.Arguments == null || input.IsAlphaBlending != isAlphaBlending ||
@@ -153,16 +170,33 @@ namespace PlayerArmorMod
                     !map.TryGetValue(input.PartId, out var part)) continue;
 
                 uint mask = CoveredSlots(coverage.Mask, part);
+                // A single dress or shirt can contain both sleeves, even
+                // when ATT labels its entire mesh with torso collection slots.
+                uint bodyMask = coverage.Mask & ~HeadMask;
+                uint bodySlots = CoveredSlots(PlayerArmorRigBinding.AllSlots & ~HeadMask, part);
+                if (coverage.BoneRegions != null && bodyMask != 0 && bodySlots != 0)
+                {
+                    if (!ReferenceEquals(checkedBody, coverage))
+                    {
+                        UpdateBody(coverage, map, parts);
+                        checkedBody = coverage;
+                    }
+                    if (coverage.Body != null && part.IsPrimary && (bodySlots & ChestMask) != 0)
+                        mask |= bodyMask & SleeveMask;
+                }
                 if (mask == 0) continue;
                 bool impeded = input.Arguments.IsImpeded;
-                var lods = impeded ? part.ImpededLods : part.Lods;
+                var nativeLods = impeded ? part.ImpededLods : part.Lods;
+                var lods = ArmorCosmeticVariants.SelectLods(part, coverage.Mask, impeded);
                 if (lods == null) continue;
-                Mesh[] fittedLods = null;
+                if (!ReferenceEquals(nativeLods, lods) && bodySlots != 0 &&
+                    !ArmorGarmentFit.CoveredSleeves(nativeLods, coverage.Mask, coverage.BoneRegions)) lods = nativeLods;
+                Mesh[] fittedLods = ReferenceEquals(nativeLods, lods) ? null : lods;
                 for (int i = 0; i < lods.Length; i++)
                 {
                     var fitted = TryFit(coverage, lods[i], mask);
                     if (fitted == null) continue;
-                    if (fittedLods == null) fittedLods = (Mesh[])lods.Clone();
+                    if (fittedLods == null || ReferenceEquals(fittedLods, lods)) fittedLods = (Mesh[])lods.Clone();
                     fittedLods[i] = fitted;
                 }
                 if (fittedLods == null) continue;
@@ -171,6 +205,35 @@ namespace PlayerArmorMod
                 fittedMap[input.PartId] = new FittedPart(part, fittedLods, impeded);
             }
             if (fittedMap != null) map = fittedMap;
+        }
+
+        static void UpdateBody(Coverage coverage, Dictionary<CosmeticPacker.PartId, ICosmeticMeshPartBase> map,
+            IEnumerable<CosmeticPacker.Input> parts)
+        {
+            var meshes = new List<Mesh>();
+            foreach (var input in parts)
+            {
+                if (input == null || input.IsOnHead || !inputs.TryGetValue(input, out var owner) || !ReferenceEquals(owner, coverage) ||
+                    !map.TryGetValue(input.PartId, out var part) || !(part is SkinMeshPart) || part.Lods == null) continue;
+                // Native impeded skin can omit the regions covered by a
+                // shirt. Use its normal LOD as the body clearance surface.
+                foreach (var mesh in part.Lods)
+                {
+                    if (mesh == null || !mesh.isReadable || mesh.vertexCount == 0) continue;
+                    if (!meshes.Contains(mesh)) meshes.Add(mesh);
+                    break;
+                }
+            }
+            if (meshes.Count == coverage.SkinMeshes.Count)
+            {
+                bool same = true;
+                for (int i = 0; i < meshes.Count; i++) same &= meshes[i] == coverage.SkinMeshes[i];
+                if (same) return;
+            }
+            coverage.Body = ArmorCosmeticShell.BodySurface(meshes);
+            coverage.SkinMeshes.Clear();
+            coverage.SkinMeshes.AddRange(meshes);
+            coverage.ClearFitted();
         }
 
         static Mesh TryFit(Coverage coverage, Mesh source, uint mask)
@@ -195,17 +258,16 @@ namespace PlayerArmorMod
 
             var vertices = source.vertices;
             bool changed = false;
-            for (int i = 0; i < vertices.Length; i++)
-            {
-                for (int slot = 0; slot < coverage.Shells.Length; slot++)
-                {
-                    var shell = coverage.Shells[slot];
-                    if ((mask & (1u << slot)) == 0 || shell == null ||
-                        !shell.TryTuck(vertices[i], out var tucked)) continue;
-                    vertices[i] = tucked;
-                    changed = true;
-                }
-            }
+            var helmet = (mask & HeadMask) != 0 ? coverage.Shells[(int)ArmorSlot.Head] : null;
+            if (helmet != null)
+                for (int i = 0; i < vertices.Length; i++)
+                    if (helmet.TryTuck(vertices[i], out var tucked))
+                    {
+                        vertices[i] = tucked;
+                        changed = true;
+                    }
+            if ((mask & ~HeadMask) != 0 && coverage.Body != null)
+                changed |= ArmorGarmentFit.Apply(source, vertices, mask, coverage.Shells, coverage.Body, coverage.BoneRegions);
 
             Mesh fitted = null;
             if (coverage.Fitted.Count >= 96) coverage.ClearFitted();

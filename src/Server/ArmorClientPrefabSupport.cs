@@ -21,6 +21,7 @@ namespace PlayerArmorMod
 
         internal static bool TryReadCapabilities(Connection connection, NetworkPrefab harness, NetworkPrefab lectern,
             NetworkPrefab crystalHelmet, NetworkPrefab[] standaloneHelmets, NetworkPrefab forgeguardHelmet,
+            NetworkPrefab[] fireWyrmPieces, NetworkPrefab[] phantomPieces,
             out bool legacyWire, out ArmorStyle latestStyle)
         {
             var reported = ReportedHashes(connection);
@@ -33,21 +34,40 @@ namespace PlayerArmorMod
             {
                 if (crystalHelmet != null && reported.Contains((int)crystalHelmet.Hash))
                     latestStyle = ArmorStyle.CrystalWyrm;
-                // Each release appends helmets. A client without the latest
-                // one can still receive the standalone helmets it registered.
+                // The original standalone helmets predate Forgeguard.
                 for (int i = standaloneHelmets.Length - 1; i >= 0; i--)
                 {
+                    var style = ArmorCatalog.StandaloneHelmets[i].Style;
+                    if (style > ArmorStyle.CauldronHelmet) continue;
                     var helmet = standaloneHelmets[i];
                     if (helmet == null || !reported.Contains((int)helmet.Hash)) continue;
-                    latestStyle = ArmorCatalog.StandaloneHelmets[i].Style;
+                    latestStyle = style;
                     break;
                 }
                 if (forgeguardHelmet != null && reported.Contains((int)forgeguardHelmet.Hash))
                     latestStyle = ArmorStyle.Forgeguard;
+                if (latestStyle == ArmorStyle.Forgeguard && SupportsFireWyrm(reported, fireWyrmPieces))
+                    latestStyle = ArmorStyle.FireWyrm;
+                if (latestStyle == ArmorStyle.FireWyrm && SupportsFireWyrm(reported, phantomPieces))
+                    latestStyle = ArmorStyle.Phantom;
+                int salletIndex = ArmorCatalog.HelmetIndex(ArmorStyle.SalletHelmet);
+                if (latestStyle == ArmorStyle.Phantom && salletIndex < standaloneHelmets.Length)
+                {
+                    var sallet = standaloneHelmets[salletIndex];
+                    if (sallet != null && reported.Contains((int)sallet.Hash))
+                        latestStyle = ArmorStyle.SalletHelmet;
+                }
             }
             // A report can span several packets. Let the client's normal hello
             // retry wait for it before committing this session's wire format.
             return reported != null || connection == null || TryGetState == null || Hashes == null;
+        }
+
+        static bool SupportsFireWyrm(HashSet<int> reported, NetworkPrefab[] pieces)
+        {
+            foreach (var piece in pieces)
+                if (piece == null || !reported.Contains((int)piece.Hash)) return false;
+            return true;
         }
 
         static HashSet<int> ReportedHashes(Connection connection)

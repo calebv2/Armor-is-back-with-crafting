@@ -11,6 +11,7 @@ namespace PlayerArmorMod
     internal static class ArmorSurfaceGrip
     {
         static readonly Dictionary<int,Func<Vector3,Vector3>> templates = new Dictionary<int,Func<Vector3,Vector3>>();
+        static readonly Dictionary<(Mesh, Matrix4x4),Func<Vector3,Vector3>> surfaces = new Dictionary<(Mesh, Matrix4x4),Func<Vector3,Vector3>>();
         static readonly Dictionary<Pickup,Func<Vector3,Vector3>> instances = new Dictionary<Pickup,Func<Vector3,Vector3>>();
         static HarmonyLib.Harmony harmony;
         static MethodInfo testGrabPoints;
@@ -64,11 +65,19 @@ namespace PlayerArmorMod
             if(!mesh.isReadable)throw new InvalidOperationException("Unreadable armor grip mesh: "+piece.PrefabName);
             // The pickup factory reuses the proxy group's local pose under the loose
             // root. Include child transforms; the native worn bone is a different frame.
-            var meshToPickup=Matrix4x4.TRS(art.localPosition,art.localRotation,art.localScale)*
-                art.worldToLocalMatrix*filter.transform.localToWorldMatrix;
-            var points=mesh.vertices;
-            for(int i=0;i<points.Length;i++)points[i]=meshToPickup.MultiplyPoint3x4(points[i]);
-            templates[Key(piece.Style,(int)piece.Slot)]=ArmorCraftingMesh.BuildSurfaceQuery(points,mesh.triangles,piece.PrefabName);
+            var meshToPickup=Matrix4x4.identity;
+            for(var node=filter.transform;node!=art.parent;node=node.parent)
+                meshToPickup=Matrix4x4.TRS(node.localPosition,node.localRotation,node.localScale)*meshToPickup;
+            var key=(mesh,meshToPickup);
+            // Crystal and Fire Wyrm use the same geometry and differ in material.
+            if(!surfaces.TryGetValue(key,out var surface))
+            {
+                var points=mesh.vertices;
+                for(int i=0;i<points.Length;i++)points[i]=meshToPickup.MultiplyPoint3x4(points[i]);
+                surface=ArmorCraftingMesh.BuildSurfaceQuery(points,mesh.triangles,piece.PrefabName);
+                surfaces.Add(key,surface);
+            }
+            templates[Key(piece.Style,(int)piece.Slot)]=surface;
         }
 
         internal static void Configure(Pickup pickup,ArmorPieceDefinition piece,Bounds bounds)
@@ -148,6 +157,7 @@ namespace PlayerArmorMod
             incoming=default(IncomingGrip);
             instances.Clear();
             templates.Clear();
+            surfaces.Clear();
         }
     }
 

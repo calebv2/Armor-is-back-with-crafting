@@ -43,6 +43,8 @@ namespace PlayerArmorMod
             internal List<OriginalArmorArt.Frame> OriginalFrames;
             internal bool Leather;
             internal ArmorStyle Style;
+            internal int RenderLayer = -1;
+            internal bool FirstPerson;
             internal ArmorMaterialAppearance Appearance;
             internal ArmorMaterialState MaterialState;
             internal uint MaterialPickup,MaterialRevision=uint.MaxValue;
@@ -72,6 +74,8 @@ namespace PlayerArmorMod
         private readonly TemplatePart[] wyrmTemplates = new TemplatePart[SlotCount];
         private readonly TemplatePart[] forgeguardTemplates = new TemplatePart[SlotCount];
         private readonly TemplatePart[] crystalWyrmTemplates = new TemplatePart[SlotCount];
+        private readonly TemplatePart[] phantomTemplates = new TemplatePart[SlotCount];
+        private readonly TemplatePart[] fireWyrmTemplates = new TemplatePart[SlotCount];
         private readonly TemplatePart[] standaloneHelmets = new TemplatePart[ArmorCatalog.StandaloneHelmets.Count];
         private readonly Dictionary<PlayerCustomizationHandler, HandlerBinding> handlers =
             new Dictionary<PlayerCustomizationHandler, HandlerBinding>();
@@ -86,11 +90,13 @@ namespace PlayerArmorMod
         private uint appliedLeatherMask;
         private uint appliedStyleBits;
         private readonly uint[] pickupIds=new uint[SlotCount];
+        private ArmorHarness activeHarness;
         private float nextReconcileAt;
         private bool disposed;
 
         internal PlayerArmorRigBinding(GameObject template, Action<string> log = null, GameObject wyrmTemplate = null,
-            GameObject crystalWyrmTemplate = null, GameObject standaloneHelmetsTemplate = null, GameObject forgeguardTemplate = null)
+            GameObject crystalWyrmTemplate = null, GameObject standaloneHelmetsTemplate = null, GameObject forgeguardTemplate = null,
+            GameObject fireWyrmTemplate = null, GameObject phantomTemplate = null)
         {
             if (template == null) throw new ArgumentNullException("template");
             logger = log;
@@ -117,6 +123,10 @@ namespace PlayerArmorMod
                 if(wyrmPart!=null)wyrmTemplates[slot]=ReadTemplate(wyrmPart,"Wyrm/"+SlotNames[slot]);
                 var crystalWyrmPart = crystalWyrmTemplate == null ? null : crystalWyrmTemplate.transform.Find("Crystal/Armor_" + SlotNames[slot]);
                 if (crystalWyrmPart != null) crystalWyrmTemplates[slot] = ReadTemplate(crystalWyrmPart, "Crystal/" + SlotNames[slot]);
+                var phantomPart = phantomTemplate == null ? null : phantomTemplate.transform.Find("Phantom/Armor_" + SlotNames[slot]);
+                if (phantomPart != null) phantomTemplates[slot] = ReadTemplate(phantomPart, "Phantom/" + SlotNames[slot]);
+                var fireWyrmPart = fireWyrmTemplate == null ? null : fireWyrmTemplate.transform.Find("Crystal/Armor_" + SlotNames[slot]);
+                if (fireWyrmPart != null) fireWyrmTemplates[slot] = ReadTemplate(fireWyrmPart, "Fire Wyrm/" + SlotNames[slot]);
                 var forgeguardPart=forgeguardTemplate==null?null:forgeguardTemplate.transform.Find("Forgeguard/Armor_"+SlotNames[slot]);
                 if(forgeguardPart!=null)forgeguardTemplates[slot]=ReadTemplate(forgeguardPart,"Forgeguard/"+SlotNames[slot]);
             }
@@ -126,6 +136,14 @@ namespace PlayerArmorMod
                     var part = standaloneHelmetsTemplate.transform.Find(definition.ArtRootName);
                     if (part != null) standaloneHelmets[ArmorCatalog.HelmetIndex(definition.Style)] = ReadTemplate(part, definition.ArtRootName);
                 }
+        }
+
+        internal void SetSalletTemplate(GameObject template)
+        {
+            if (template == null) return;
+            var definition = ArmorCatalog.Get(ArmorStyle.SalletHelmet, ArmorSlot.Head);
+            standaloneHelmets[ArmorCatalog.HelmetIndex(definition.Style)] =
+                ReadTemplate(template.transform.Find(definition.ArtRootName), definition.ArtRootName);
         }
 
         private static TemplatePart ReadTemplate(Transform part, string name)
@@ -189,6 +207,11 @@ namespace PlayerArmorMod
                     return part.Renderers;
             }
             return null;
+        }
+
+        internal void SetHarness(ArmorHarness harness)
+        {
+            activeHarness = harness;
         }
 
         /// <summary>Primary live player socket, suitable for local proximity UI.</summary>
@@ -344,17 +367,28 @@ namespace PlayerArmorMod
                 if (worn && part.Visual != null && part.Style != style) ReleaseVisual(part);
                 if (worn && part.Visual == null) CreateVisual(binding, part, slot, layer, style);
                 if (part.Visual == null) continue;
-                if (worn) visibleArmor |= 1u << slot;
-                if(part.OriginalFrames!=null)foreach(var frame in part.OriginalFrames)frame.Update();
-                if (part.Visual.activeSelf != worn) part.Visual.SetActive(worn);
-                if(part.OriginalFrames!=null)foreach(var frame in part.OriginalFrames)frame.SetVisible(worn);
-                for (int i = 0; i < part.Renderers.Length; i++)
+                if (part.Visual.activeSelf != worn)
                 {
-                    Renderer renderer = part.Renderers[i]; if (renderer == null) continue;
-                    renderer.gameObject.layer = layer;
-                    // Same rule as native ClothesSettings.ToggleHeadRenderers:
-                    // the local helmet casts shadows without filling the eyes.
-                    renderer.shadowCastingMode = slot == 0 && firstPerson ? ShadowCastingMode.ShadowsOnly : part.OriginalShadows[i];
+                    part.Visual.SetActive(worn);
+                    // The rigid frames are already parented to native bones,
+                    // so they follow the pose without per-frame transform copies.
+                    foreach (var frame in part.OriginalFrames) frame.SetVisible(worn);
+                }
+                if (!worn) continue;
+                visibleArmor |= 1u << slot;
+                bool hideHelmet = slot == 0 && firstPerson;
+                if (part.RenderLayer != layer || part.FirstPerson != hideHelmet)
+                {
+                    for (int i = 0; i < part.Renderers.Length; i++)
+                    {
+                        Renderer renderer = part.Renderers[i];
+                        if (renderer == null) continue;
+                        renderer.gameObject.layer = layer;
+                        // The local helmet casts shadows without filling the eyes.
+                        renderer.shadowCastingMode = hideHelmet ? ShadowCastingMode.ShadowsOnly : part.OriginalShadows[i];
+                    }
+                    part.RenderLayer = layer;
+                    part.FirstPerson = hideHelmet;
                 }
                 // Color is optional presentation. Activate the base armor and
                 // preserve native frame/shadow rules even if a palette fails.
@@ -373,6 +407,7 @@ namespace PlayerArmorMod
             {
                 binding.CosmeticBindPoses = ArmorCosmeticCoverage.BindPoses(binding.Packer);
                 binding.CosmeticBones = ArmorCosmeticCoverage.BoneIndices(binding.Dummy, binding.CosmeticBindPoses?.Length ?? 0);
+                ArmorCosmeticCoverage.SetRig(binding.Packer, binding.CosmeticBones, binding.CosmeticBindPoses?.Length ?? 0);
             }
             if (binding.CosmeticBones != null)
                 for (int i = 0; i < SlotCount; i++)
@@ -407,6 +442,8 @@ namespace PlayerArmorMod
                 case ArmorStyle.Mushroom: template=mushroomTemplates[slot]; break;
                 case ArmorStyle.Wyrm: template=wyrmTemplates[slot]; break;
                 case ArmorStyle.CrystalWyrm: template=crystalWyrmTemplates[slot]; break;
+                case ArmorStyle.FireWyrm: template=fireWyrmTemplates[slot]; break;
+                case ArmorStyle.Phantom: template=phantomTemplates[slot]; break;
                 case ArmorStyle.Forgeguard: template=forgeguardTemplates[slot]; break;
                 default:
                     template=slot==(int)ArmorSlot.Head&&ArmorCatalog.IsStandaloneHelmet(style)
@@ -483,16 +520,29 @@ namespace PlayerArmorMod
             if(id!=part.MaterialPickup){part.MaterialPickup=id;part.MaterialState=null;part.MaterialRevision=uint.MaxValue;part.MaterialHashes=new uint[0];part.NextMaterialLookup=0;part.Appearance.Restore();}
             if(part.MaterialState==null&&id!=0&&Time.unscaledTime>=part.NextMaterialLookup)
             {
-                part.NextMaterialLookup=Time.unscaledTime+.35f;var scene=NetworkSceneManager.Current;var entity=scene==null?null:scene.GetEntity(id);
-                var marker=entity==null?null:entity.GetComponent<ArmorPickup>();
-                if(marker!=null&&marker.Style==style&&marker.Slot==slot)
-                {
-                    var resolved=marker.GetComponent<ArmorMaterialState>();
-                    if(!object.ReferenceEquals(part.MaterialState,resolved)){part.MaterialState=resolved;part.MaterialRevision=uint.MaxValue;part.MaterialHashes=new uint[0];part.Appearance.Restore();}
-                }
+                part.NextMaterialLookup=Time.unscaledTime+.35f;
+                var docked = ResolveDockedMaterial(activeHarness, slot, style, id);
+                var scene = NetworkSceneManager.Current;
+                var entity = docked == null && scene != null ? scene.GetEntity(id) : null;
+                var marker = entity == null ? null : entity.GetComponent<ArmorPickup>();
+                part.MaterialState = docked ?? (marker != null && marker.Style == style && marker.Slot == slot
+                    ? marker.GetComponent<ArmorMaterialState>() : null);
+                part.MaterialRevision = uint.MaxValue;
             }
-            if(part.MaterialState!=null&&part.MaterialRevision!=part.MaterialState.Revision){part.MaterialRevision=part.MaterialState.Revision;part.MaterialHashes=part.MaterialState.PrimaryMaterialHashes;part.MaterialLayout=part.MaterialState.LayoutVersion;}
+            bool profileChanged=part.MaterialState!=null&&part.MaterialRevision!=part.MaterialState.Revision;
+            if(profileChanged){part.MaterialRevision=part.MaterialState.Revision;part.MaterialHashes=part.MaterialState.PrimaryMaterialHashes;part.MaterialLayout=part.MaterialState.LayoutVersion;}
+            if(!profileChanged&&!part.Appearance.ReadyToRetry(Time.unscaledTime))return;
             part.Appearance.Update(part.MaterialHashes,part.MaterialRevision,part.MaterialLayout,ArmorConstructionPlan.PrimaryCount(style,(ArmorSlot)slot),ArmorCatalog.TintsFasteners(style));
+        }
+
+        static ArmorMaterialState ResolveDockedMaterial(ArmorHarness harness, int slot, ArmorStyle style, uint id)
+        {
+            var docks = harness == null ? null : harness.Docks;
+            var pickup = docks != null && slot < docks.Length && docks[slot] != null ? docks[slot].DockedPickup : null;
+            if (pickup == null || pickup.Entity == null || pickup.Entity.IsBeingDestroyed || pickup.Entity.Identifier != id)
+                return null;
+            var marker = pickup.GetComponent<ArmorPickup>();
+            return marker != null && marker.Style == style && marker.Slot == slot ? marker.GetComponent<ArmorMaterialState>() : null;
         }
 
         private static void RebindSkin(SkinnedMeshRenderer renderer, Transform root)
@@ -554,6 +604,7 @@ namespace PlayerArmorMod
                 UnityEngine.Object.Destroy(part.Visual);
             }
             part.Visual = null; part.Renderers = null; part.OriginalShadows = null; part.OriginalFrames = null;
+            part.RenderLayer = -1;
         }
         private void ClearBindings()
         {

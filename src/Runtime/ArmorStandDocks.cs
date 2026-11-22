@@ -36,7 +36,9 @@ namespace PlayerArmorMod
                 int interactionLayer = -1;
                 foreach (var definition in ArmorCatalog.AllPieces)
                 {
-                    if ((int)definition.Slot != i || ArmorCatalog.IsWyrmStyle(definition.Style) || ArmorCatalog.IsStandaloneHelmet(definition.Style)) continue;
+                    if ((int)definition.Slot != i || ArmorCatalog.IsWyrmStyle(definition.Style) ||
+                        ArmorCatalog.IsStandaloneHelmet(definition.Style) || definition.Style == ArmorStyle.Forgeguard ||
+                        definition.Style == ArmorStyle.Phantom) continue;
                     var armor = assets.PiecesFor(definition.Style)[i];
                     var pickup = armor == null ? null : armor.GetComponent<Pickup>();
                     var box = armor == null ? null : armor.GetComponent<BoxCollider>();
@@ -87,18 +89,36 @@ namespace PlayerArmorMod
                 AddPiece(stand,slot,pieces[slot]);
         }
 
-        internal static void AddPiece(NetworkPrefab stand,int slot,NetworkPrefab armor)
+        internal static void AddPiece(NetworkPrefab stand,int slot,NetworkPrefab armor,Pose? standPose = null)
         {
             var dock = stand.Embedded[slot].GetComponent<ArmorStandDock>();
             var box = armor.GetComponent<BoxCollider>();
             var range = dock.GetComponent<BoxCollider>();
             var extra = new Bounds(box.center, box.size);
+            var item = armor.GetComponent<Pickup>().Item;
+            if (standPose.HasValue)
+            {
+                var pose = standPose.Value;
+                // Native docking and save restoration both look up this setting
+                // on the item. Each stand slot has its own PickupDockSettings.
+                ArmorNative.Set(item, "customPositions", new[] {
+                    new Item.CustomDockPositioning(dock.Settings, pose.position, pose.rotation.eulerAngles)
+                });
+                extra = new Bounds(pose.position + pose.rotation * box.center, Vector3.zero);
+                Vector3 half = box.size * .5f;
+                for (int corner = 0; corner < 8; ++corner)
+                {
+                    var offset = new Vector3((corner & 1) == 0 ? -half.x : half.x,
+                        (corner & 2) == 0 ? -half.y : half.y, (corner & 4) == 0 ? -half.z : half.z);
+                    extra.Encapsulate(pose.position + pose.rotation * (box.center + offset));
+                }
+            }
             extra.Expand(.08f);
             var combined = new Bounds(range.center, range.size);
             combined.Encapsulate(extra);
             range.center = combined.center;
             range.size = combined.size;
-            dock.Settings.IncludedItems.Add(armor.GetComponent<Pickup>().Item);
+            dock.Settings.IncludedItems.Add(item);
         }
     }
 

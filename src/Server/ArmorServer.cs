@@ -41,7 +41,16 @@ namespace PlayerArmorMod
         sealed class PendingEquip{internal string Nonce,LastReason;internal ArmorSlot Slot;internal uint PickupId,ControllerId;internal Transform Anchor;internal bool Body;internal float Expires,NextAttempt;}
         internal ArmorServer(ArmorPrefabRegistry registry){assets=registry;current=this;ArmorCrafting.SetServerEpoch(epoch);ArmorSettings.Changed+=ConfigurationChanged;ArmorDurability.ConditionChanged+=ConditionChanged;}
         void ConfigurationChanged(){dirty=true;nextPush=0;}
-        void ConditionChanged(ArmorPickup pickup){dirty=true;nextPush=Math.Min(nextPush,Time.unscaledTime+.1f);}
+        void ConditionChanged(ArmorPickup pickup)
+        {
+            var dock=pickup==null?null:pickup.GetComponent<Pickup>()?.Dock;
+            if(dock==null)return;
+            var parent=dock.transform.parent;
+            var harness=parent==null?null:parent.GetComponent<ArmorHarness>();
+            int slot=pickup.Slot;
+            if(harness==null||harness.Docks==null||(uint)slot>=harness.Docks.Length||harness.Docks[slot]!=dock)return;
+            dirty=true;nextPush=Math.Min(nextPush,Time.unscaledTime+.1f);
+        }
         internal void Install(HarmonyLib.Harmony harmony)
         {
             Player.OnPlayerAdded+=Observe;Player.OnPlayerRemoved+=Removed;
@@ -117,7 +126,9 @@ namespace PlayerArmorMod
             }
             UpdatePendingEquips(now);
             ArmorProtection.Update(harnesses.Values);
-            if((dirty&&now>=nextPush)||now>=nextPush+4f)
+            // Join and the existing client refresh requests still get a full
+            // snapshot. Broadcasts only accelerate changes between requests.
+            if(dirty&&now>=nextPush)
             {
                 dirty=false;nextPush=now+1f;PushAll();
             }
@@ -187,7 +198,7 @@ namespace PlayerArmorMod
             {
                 if(clients.TryGetValue(player,out session)&&now<session.NextRequest)return;
                 if(!ArmorClientPrefabSupport.TryReadCapabilities(player.ConnectionToRemotePlayer,assets.Harness,ArmorWorkshopPrefabs.RecipeLectern,
-                    assets.CrystalWyrmPieces[0],assets.StandaloneHelmets,assets.ForgeguardPieces[0],
+                    assets.CrystalWyrmPieces[0],assets.StandaloneHelmets,assets.ForgeguardPieces[0],assets.FireWyrmPieces,assets.PhantomPieces,
                     out bool legacyWire,out ArmorStyle latestStyle))return;
                 bool newSession=session==null||session.Nonce!=command.Nonce;
                 if(newSession)pendingEquips.Remove(player);

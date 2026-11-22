@@ -94,6 +94,8 @@ namespace PlayerArmorMod
         const int ServerSchemaVersion=3;
         const float CrystalWyrmDamageReduction=.30f;
         const float CrystalWyrmDurability=250f;
+        const float FireWyrmProtectionMultiplier=1.20f;
+        const float FireWyrmDurabilityMultiplier=1.15f;
         internal static ArmorConfiguration Current {get;private set;}=Defaults();
         internal static uint Revision {get;private set;}=1;
         internal static bool RemoteReady {get;private set;}
@@ -141,7 +143,7 @@ namespace PlayerArmorMod
         {
             ConfigurationPath=Path.Combine(userData,"PlayerArmor","armor.json");
             Directory.CreateDirectory(Path.GetDirectoryName(ConfigurationPath));
-            if(!File.Exists(ConfigurationPath))File.WriteAllText(ConfigurationPath,JsonConvert.SerializeObject(Defaults(),Formatting.Indented));
+            if(!File.Exists(ConfigurationPath))File.WriteAllText(ConfigurationPath,SerializeServerConfiguration(Defaults(),Formatting.Indented,false));
             Poll(0,true);
         }
         internal static void Poll(float now,bool force=false)
@@ -171,16 +173,18 @@ namespace PlayerArmorMod
                 .Where(p=>p!=null).Select(p=>(string)p["prefabName"]).Where(n=>n!=null),StringComparer.Ordinal);
             foreach(var piece in accepted.pieces)
             {
-                if(!existing.Contains(piece.prefabName))continue;
+                if(!existing.Contains(piece.prefabName)||piece.prefabName==ArmorCatalog.SalletPrefabName)continue;
                 if(accepted.schemaVersion==WireSchemaVersion&&piece.prefabName.StartsWith(ArmorCatalog.CrystalWyrmPrefabPrefix,StringComparison.Ordinal)
                     &&piece.damageReduction==.18f&&piece.maximumDurability==250f)
                 {piece.damageReduction=CrystalWyrmDamageReduction;piece.maximumDurability=500f;}
                 piece.maximumDurability=Math.Max(1f,piece.maximumDurability*.5f);
             }
+            ApplyMissingFireWyrmSettings(accepted,existing);
             accepted.schemaVersion=ServerSchemaVersion;
-            var updated=JsonConvert.SerializeObject(accepted,Formatting.Indented);
+            bool includeSallet=existing.Contains(ArmorCatalog.SalletPrefabName);
+            var updated=SerializeServerConfiguration(accepted,Formatting.Indented,includeSallet);
             if(System.Text.Encoding.UTF8.GetByteCount(updated)>MaximumJsonBytes)
-                updated=JsonConvert.SerializeObject(accepted,Formatting.None);
+                updated=SerializeServerConfiguration(accepted,Formatting.None,includeSallet);
             if(System.Text.Encoding.UTF8.GetByteCount(updated)>MaximumJsonBytes)
             {
                 Core.Error("PLAYER_ARMOR_CONFIG_UPGRADE_NOT_SAVED updated settings exceed 64 KiB; applied in memory");
@@ -205,6 +209,16 @@ namespace PlayerArmorMod
                 {Core.Error("PLAYER_ARMOR_CONFIG_TEMP_CLEANUP_FAILED "+error.Message);}
             }
             return true;
+        }
+        static string SerializeServerConfiguration(ArmorConfiguration value,Formatting formatting,bool includeSallet)
+        {
+            var json=Newtonsoft.Json.Linq.JObject.FromObject(value);
+            if(!includeSallet)
+            {
+                var pieces=(Newtonsoft.Json.Linq.JArray)json[nameof(ArmorConfiguration.pieces)];
+                pieces.FirstOrDefault(piece=>(string)piece[nameof(ArmorPieceSettings.prefabName)]==ArmorCatalog.SalletPrefabName)?.Remove();
+            }
+            return json.ToString(formatting);
         }
         internal static void ApplyRemote(string json)
         {
@@ -267,7 +281,23 @@ namespace PlayerArmorMod
                 if(r.ingredients.Sum(i=>i.quantity)>32)throw new InvalidDataException("Armor recipes allow at most 32 physical pieces: "+r.prefabName);
                 ArmorConstructionPlan.Validate(r);
             }
+            ApplyMissingFireWyrmSettings(value,presentPieces);
             return value;
+        }
+
+        static void ApplyMissingFireWyrmSettings(ArmorConfiguration value,HashSet<string> explicitPieces)
+        {
+            foreach(var fire in ArmorCatalog.FireWyrmPieces)
+            {
+                if(explicitPieces.Contains(fire.PrefabName))continue;
+                var crystalName=ArmorCatalog.Get(ArmorStyle.CrystalWyrm,fire.Slot).PrefabName;
+                var crystal=value.pieces.First(piece=>piece.prefabName==crystalName);
+                var fireSettings=value.pieces.First(piece=>piece.prefabName==fire.PrefabName);
+                fireSettings.damageReduction=Math.Min(.9f,crystal.damageReduction*FireWyrmProtectionMultiplier);
+                fireSettings.maximumDurability=Math.Min(1000000f,crystal.maximumDurability*FireWyrmDurabilityMultiplier);
+                if(crystal.projectileDamageReduction.HasValue)
+                    fireSettings.projectileDamageReduction=Math.Min(.9f,crystal.projectileDamageReduction.Value*FireWyrmProtectionMultiplier);
+            }
         }
         static bool Finite(float v){return !float.IsNaN(v)&&!float.IsInfinity(v);}
         static bool Code(string value)
@@ -284,14 +314,17 @@ namespace PlayerArmorMod
             };
             foreach(var p in ArmorCatalog.AllPieces)
             {
-                bool metal=ArmorCatalog.UsesMetalMaterials(p.Style);
+                bool metal=ArmorCatalog.UsesMetalMaterials(p.Style)||p.Style==ArmorStyle.SalletHelmet;
                 bool crystal=p.Style==ArmorStyle.CrystalWyrm;
+                bool fire=p.Style==ArmorStyle.FireWyrm;
                 bool forgeguard=p.Style==ArmorStyle.Forgeguard;
                 bool cosmetic=p.Style==ArmorStyle.NewsboyHelmet;
                 pieces.Add(new ArmorPieceSettings{prefabName=p.PrefabName,
-                    damageReduction=forgeguard?.65f:cosmetic?0f:crystal?CrystalWyrmDamageReduction:metal?.35f:.18f,
+                    damageReduction=forgeguard?.65f:cosmetic?0f:fire?CrystalWyrmDamageReduction*FireWyrmProtectionMultiplier:
+                        crystal?CrystalWyrmDamageReduction:metal?.35f:.18f,
                     projectileDamageReduction=forgeguard?(float?).75f:null,movementPenalty=forgeguard?ForgeguardPolicy.Penalty(p.Slot):0,
-                    maximumDurability=forgeguard?500:crystal?CrystalWyrmDurability:metal?250:125,wearPerAbsorbedDamage=1});
+                    maximumDurability=forgeguard?500:fire?CrystalWyrmDurability*FireWyrmDurabilityMultiplier:
+                        crystal?CrystalWyrmDurability:metal?250:125,wearPerAbsorbedDamage=1});
                 if(ArmorCatalog.IsCraftable(p.Style))recipes.Add(DefaultConstruction(p));
             }
             value.pieces=pieces.ToArray();value.recipes=recipes.ToArray();return value;

@@ -406,6 +406,90 @@
       "wearPerAbsorbedDamage": 1,
       "projectileDamageReduction": 0.75,
       "movementPenalty": 0.05
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Helmet",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Cuirass",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Pauldron_Left",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Pauldron_Right",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Bracer_Left",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Bracer_Right",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_FireWyrmArmor_Tassets",
+      "damageReduction": 0.36,
+      "maximumDurability": 287.5,
+      "wearPerAbsorbedDamage": 1
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Helmet",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Cuirass",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Pauldron_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Pauldron_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Bracer_Left",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Bracer_Right",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
+    },
+    {
+      "prefabName": "ATT_PhantomArmor_Tassets",
+      "damageReduction": 0.18,
+      "maximumDurability": 125.0,
+      "wearPerAbsorbedDamage": 1.0
     }
   ],
   "recipes": [

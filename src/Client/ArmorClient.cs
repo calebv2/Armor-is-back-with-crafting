@@ -45,6 +45,7 @@ namespace PlayerArmorMod
         {
             ArmorMovement.Install(harmony);
             ArmorCosmeticCoverage.Install(harmony);
+            ArmorDummyAppearance.Install(harmony);
             ArmorHandInteraction.Install(harmony,Core.Log);
             Core.Log("PLAYER_ARMOR_HAND_GUARD_READY armor targets filtered before native hand overlap collection");
             harmony.Patch(AccessTools.Method(typeof(PlayerTextMessage),"Serialize"),postfix:new HarmonyMethod(typeof(ArmorClient),"MessagePostfix"));
@@ -125,8 +126,12 @@ namespace PlayerArmorMod
                 ArmorHandInteraction.UpdateHarness(harness);
                 PlayerArmorRigBinding binding;
                 if(!views.TryGetValue(actor.ControllerId,out binding))
+                {
                     views[actor.ControllerId]=binding=new PlayerArmorRigBinding(assets.VisualTemplate,Core.Log,assets.WyrmTemplate,
-                        assets.CrystalWyrmTemplate,assets.StandaloneHelmetsTemplate,assets.ForgeguardTemplate);
+                        assets.CrystalWyrmTemplate,assets.StandaloneHelmetsTemplate,assets.ForgeguardTemplate,assets.FireWyrmTemplate,assets.PhantomTemplate);
+                    binding.SetSalletTemplate(assets.SalletTemplate);
+                }
+                binding.SetHarness(harness);
                 UpdateView(binding,character,actor);
             }
         }

@@ -109,10 +109,7 @@ namespace PlayerArmorMod
             ArmorNative.Set(recipe,"hash",(int)hash);ArmorNative.Set(recipe,"resultHash",basis.Result.Hash);ArmorNative.Set(recipe,"pieces",pieces);
             ArmorNative.Set(recipe,"spawnOffset",new SerializedTransform{position=new Vector3(0,.35f,0),rotation=Quaternion.identity,scale=Vector3.one});
             ArmorNative.Set(recipe,"uniqueGlyphs",new Glyph.Positioning[0]);
-            bool publish=!ArmorCatalog.IsChestOnly(basis.Piece.Style);
-            if(publish)ArmorRecipeBookIntegration.ValidateRegistration(recipe,basis.Piece);
             AddValue(recipe);version.Native=recipe;versions.Add(hash,version);
-            if(publish)ArmorRecipeBookIntegration.Register(recipe,basis.Piece);
             if(authoritative)confirmedVersions.Add(hash);
             ArmorNative.Field(typeof(GenericCraftingRecipe),"mappedResult").SetValue(null,null);return version;
         }
@@ -164,8 +161,11 @@ namespace PlayerArmorMod
                     }
                     version=RegisterVersion(hash,descriptor,true);
                     var basis=bases.Single(b=>b.Piece.PrefabName==version.Piece.PrefabName);
-                    if(basis.Descriptor==descriptor||ArmorCraftingRecipeCodec.Canonical(ActiveSettings(ArmorSettings.ConstructionFor(basis.Piece)))==descriptor)
-                    {basis.Native=version.Native;basis.Settings=version.Settings;basis.Descriptor=descriptor;}
+                    if(basis.Native!=version.Native&&(basis.Descriptor==descriptor||ArmorCraftingRecipeCodec.Canonical(ActiveSettings(ArmorSettings.ConstructionFor(basis.Piece)))==descriptor))
+                    {
+                        basis.Native=version.Native;basis.Settings=version.Settings;basis.Descriptor=descriptor;
+                        ArmorRecipeBookIntegration.Refresh();
+                    }
                 }
                 value=version.Native;
             }
@@ -182,6 +182,14 @@ namespace PlayerArmorMod
             if(prefab!=null&&chestOnlyResults.Contains(prefab.Hash)){__result=null;return false;}
             var current=prefab==null?null:recipes.FirstOrDefault(r=>r.Result.Hash==prefab.Hash);
             if(current==null)return true;__result=current.Native;return false;
+        }
+        internal static GenericCraftingRecipe[] CurrentBookRecipes() => recipes.Where(recipe=>recipe.Native!=null)
+            .OrderBy(recipe=>recipe.Piece.Style).ThenBy(recipe=>recipe.Piece.Slot).Select(recipe=>recipe.Native).ToArray();
+
+        internal static GenericCraftingRecipe CurrentBookRecipe(uint hash)
+        {
+            if(!versions.TryGetValue(hash,out var version))return null;
+            return recipes.Find(recipe=>recipe.Result.Hash==version.Result.Hash)?.Native;
         }
         static bool MapRecipeResults()
         {
@@ -211,13 +219,13 @@ namespace PlayerArmorMod
         {
             foreach(var value in versions.Values.ToArray())Retire(value);
             confirmedVersions.Clear();
+            ArmorRecipeBookIntegration.Refresh();
             ArmorNative.Field(typeof(HashedGeneralValue<GenericCraftingRecipe>),"itemsByName").SetValue(null,null);
             ArmorNative.Field(typeof(GenericCraftingRecipe),"mappedResult").SetValue(null,null);
             CollectRetired();
         }
         static void Retire(Recipe version)
         {
-            ArmorRecipeBookIntegration.Retire(version.Native);
             var map=(Dictionary<uint,GenericCraftingRecipe>)ArmorNative.Field(typeof(HashedGeneralValue<GenericCraftingRecipe>),"items").GetValue(null);
             GenericCraftingRecipe found;
             if(map.TryGetValue(version.Native.Hash,out found)&&object.ReferenceEquals(found,version.Native))map.Remove(version.Native.Hash);

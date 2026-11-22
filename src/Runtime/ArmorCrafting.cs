@@ -65,7 +65,7 @@ namespace PlayerArmorMod
             InstallMaterialHooks(harmony);
             InstallRecipeLabelHooks(harmony);
             ArmorRecipeBookIntegration.Install(harmony);
-            ArmorCraftingDiagnostics.Install(harmony);
+            if(Core.DiagnosticsEnabled)ArmorCraftingDiagnostics.Install(harmony);
             if(!Core.IsServer)ArmorRecipePageInteraction.Install(harmony);
             ArmorSettings.Changed+=SettingsChanged;
         }
@@ -152,10 +152,12 @@ namespace PlayerArmorMod
         }
         internal static bool IsChestOnlyRecipe(GenericCraftingRecipe recipe)
         {return recipe!=null&&chestOnlyResults.Contains(recipe.ResultHash);}
-        static bool AllowBookPage(Book __instance,PageData page)
+        static bool AllowBookPage(Book __instance,ref PageData page,ref bool __result)
         {
             var recipe=page?.ProviderData as GenericCraftingRecipe;
-            return !IsChestOnlyRecipe(recipe)&&OwnsRecipe(recipe)==ArmorWorkshopPrefabs.IsBook(__instance);
+            if(!ArmorWorkshopPrefabs.IsBook(__instance))return !OwnsRecipe(recipe)&&!IsChestOnlyRecipe(recipe);
+            return NetworkSceneManager.IsServer&&OwnsRecipe(recipe)&&!IsChestOnlyRecipe(recipe)&&
+                ArmorRecipeBookIntegration.AdmitPage(__instance,recipe,ref page,ref __result);
         }
         static bool AllowUnlock(int providerID,uint hash)
         {
@@ -229,7 +231,7 @@ namespace PlayerArmorMod
             }
             else ArmorCraftingMesh.NailPoses(meshes,collisionMeshes,out nailPositions,out nailRotations,requiresNails);
             var clearance=ArmorCraftingMesh.LastNailClearanceDegrees;
-            Core.Log("PLAYER_ARMOR_NAIL_GEOMETRY name="+recipe.Piece.PrefabName+" layout="+ArmorConstructionPlan.Layout(settings)
+            if(Core.DiagnosticsEnabled)Core.Log("PLAYER_ARMOR_NAIL_GEOMETRY name="+recipe.Piece.PrefabName+" layout="+ArmorConstructionPlan.Layout(settings)
                 +" nails="+requiresNails.Count(value=>value)+" clear45="+clearance.Count(value=>value==45)
                 +" clear20="+clearance.Count(value=>value==20)+" straight="+clearance.Count(value=>value==0)
                 +" fallback="+clearance.Count(value=>value==-1));
@@ -302,6 +304,7 @@ namespace PlayerArmorMod
             try
             {
                 foreach(var recipe in recipes)SelectActiveVersion(recipe,ArmorSettings.GetRecipe(recipe.Piece.PrefabName));
+                ArmorRecipeBookIntegration.Refresh();
                 remoteConfigured=true;Core.Log("PLAYER_ARMOR_RECIPES_CONFIGURED server recipe settings accepted");
             }
             catch(Exception e){Core.Error("PLAYER_ARMOR_RECIPES_CONFIG_FAILED "+e.GetBaseException().Message);}

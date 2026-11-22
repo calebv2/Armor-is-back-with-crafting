@@ -24,11 +24,15 @@ $forgeguardJig=Join-Path $PSScriptRoot 'Builds\player-forgeguard-jig.json'
 $standBundle=Join-Path $PSScriptRoot 'Builds\player-armor-stand'
 $wyrmBundle=Join-Path $PSScriptRoot 'Builds\player-wyrm-armor'
 $crystalWyrmBundle=Join-Path $PSScriptRoot 'Builds\player-crystal-wyrm-armor'
+$phantomMeshes=Join-Path $PSScriptRoot 'Builds\player-phantom-armor.json.gz'
+$phantomAtlas=Join-Path $PSScriptRoot 'Builds\phantom-material-atlas.png'
+$fireWyrmShell=Join-Path $PSScriptRoot 'Builds\fire-wyrm-shell.png'
+$fireWyrmGlow=Join-Path $PSScriptRoot 'Builds\fire-wyrm-shell-glow.png'
 $standaloneHelmetsBundle=Join-Path $PSScriptRoot 'Builds\player-standalone-helmets'
 $workshopBundle=Join-Path $PSScriptRoot 'Builds\player-armor-workshop'
 $jigPlans=Join-Path $PSScriptRoot 'Builds\player-armor-jig-plans.json'
 $woodlandBucketJig=Join-Path $PSScriptRoot 'Builds\player-woodland-bucket-jig.json'
-foreach($asset in @($forgeguardBundle,$forgeguardJig,$bundle,$standBundle,$wyrmBundle,$crystalWyrmBundle,$standaloneHelmetsBundle,$workshopBundle,$jigPlans,$woodlandBucketJig)){
+foreach($asset in @($phantomAtlas,$phantomMeshes,$forgeguardBundle,$forgeguardJig,$bundle,$standBundle,$wyrmBundle,$crystalWyrmBundle,$fireWyrmShell,$fireWyrmGlow,$standaloneHelmetsBundle,$workshopBundle,$jigPlans,$woodlandBucketJig)){
     if(-not(Test-Path -LiteralPath $asset -PathType Leaf)){
         throw "Missing build resource: $asset. Restore it from the repository."
     }
@@ -62,11 +66,15 @@ $arguments=@('/nologo','/target:library','/langversion:latest','/nostdlib+','/op
 if($Package -eq 'Client'){$arguments+='/define:PLAYER_ARMOR_CLIENT'}
 if($Package -eq 'Server'){$arguments+='/define:PLAYER_ARMOR_SERVER'}
 $arguments+='/resource:"'+$bundle+'",PlayerArmor.Model'
+$arguments+='/resource:"'+$phantomMeshes+'",PlayerArmor.Phantom'
+$arguments+='/resource:"'+$phantomAtlas+'",PlayerArmor.Phantom.Atlas'
 $arguments+='/resource:"'+$forgeguardBundle+'",PlayerArmor.Forgeguard'
 $arguments+='/resource:"'+$forgeguardJig+'",PlayerArmor.ForgeguardJig'
 $arguments+='/resource:"'+$standBundle+'",PlayerArmor.Stand'
 $arguments+='/resource:"'+$wyrmBundle+'",PlayerArmor.Wyrm'
 $arguments+='/resource:"'+$crystalWyrmBundle+'",PlayerArmor.CrystalWyrm'
+$arguments+='/resource:"'+$fireWyrmShell+'",PlayerArmor.FireWyrm.Shell'
+$arguments+='/resource:"'+$fireWyrmGlow+'",PlayerArmor.FireWyrm.Glow'
 $arguments+='/resource:"'+$standaloneHelmetsBundle+'",PlayerArmor.StandaloneHelmets'
 $arguments+='/resource:"'+$workshopBundle+'",PlayerArmor.Workshop'
 $arguments+='/resource:"'+$jigPlans+'",PlayerArmor.JigPlans'

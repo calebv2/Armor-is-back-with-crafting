@@ -1,23 +1,37 @@
-# :shield: Player Armor 0.10.24 for A Township Tale
+# :shield: Player Armor 0.10.39 for A Township Tale
 
-Eight full armor sets, standalone helmets, 35 crafting recipes, and a dedicated Armor Workshop. Each set has seven pieces, and you can mix pieces from different sets.
+Ten full armor sets, standalone helmets, 35 crafting recipes, and a dedicated Armor Workshop. Each set has seven pieces, and you can mix pieces from different sets.
 
 ## Download and install
 
-Download the ZIP for your setup from the [0.10.24 release](https://github.com/calebv2/Armor-is-back-with-crafting/releases/tag/v0.10.24).
-
 | Package | DLL | Where to install |
 | --- | --- | --- |
-| Combined (`PlayerArmor-0.10.24.zip`) | `PlayerArmor.dll` | Shared `Mods` folder, server, or PC client |
-| Server (`PlayerArmor-0.10.24-Server.zip`) | `PlayerArmor.Server.dll` | Server `Mods` folder |
-| Client (`PlayerArmor-0.10.24-Client.zip`) | `PlayerArmor.Client.dll` | PC client `Mods` folder |
+| Combined (`PlayerArmor-0.10.39.zip`) | `PlayerArmor.dll` | Shared `Mods` folder, server, or PC client |
+| Server (`PlayerArmor-0.10.39-Server.zip`) | `PlayerArmor.Server.dll` | Server `Mods` folder |
+| Client (`PlayerArmor-0.10.39-Client.zip`) | `PlayerArmor.Client.dll` | PC client `Mods` folder |
 
 1. Install MelonLoader and SyncLib on the server and each PC client. This release was built with SyncLib 1.1.1.
 2. Choose one build per `Mods` folder. When switching builds, remove the previous Player Armor DLL from that folder.
 3. Copy the DLL from the ZIP's `Mods` folder into the corresponding `Mods` folder. The Combined build detects the process type automatically.
 4. Restart the server and clients. Keep your existing world save, `armor.json`, and `recipe-history.json`.
 
-Version 0.10.24 tucks protruding cosmetic vertices under equipped armor. Exposed material keeps its original shape, and the full garment returns to its original fit when the armor comes off. This is a client-only visual upgrade for existing 0.10.22 and 0.10.23 servers.
+Version 0.10.38 fits body cosmetics under equipped armor. It uses compatible native fitted meshes where available. Other garments taper under the plates using the character's skin as a clearance boundary, with their original colors, patterns, and joints. Removing a piece restores the original garment shape in that area. The PC client applies the fit to the player and Equipment dummy.
+
+Version 0.10.37 gives the Armor Recipe Book a blue leather cover with a gold cuirass emblem. It opens at page 1 of the learned recipes, including on existing workshop lecterns. The server applies protection from its equipped armor inventory even during a client handshake or timeout. Equipped chest armor covers explosions and area damage that arrive without a body location. Phantom armor uses fewer render triangles, the workshop uses simpler floor collision, and the stand draws its wooden frame as one mesh.
+
+Version 0.10.36 aligns the full Phantom set and both Forgeguard gauntlets on house and workshop armor stands. Pieces already on display use the corrected positions when the stand loads.
+
+Version 0.10.35 updates the existing Phantom set. The hoodless helmet has recessed black eyes and a torn crest. Each gauntlet runs from the forearm to the knuckles, with jointed plates that follow the fingers as you grip. Already-owned pieces use the new models when the PC client updates.
+
+Version 0.10.30 repairs existing Armor Recipe Books on load and opens them at page 1. Each learned armor piece appears once, using the current recipe. Unlocks from previous recipe versions carry forward automatically.
+
+Version 0.10.29 caches armor attachment points and sends fewer updates while players are idle. Install the update on both the server and PC clients to get all of the performance changes.
+
+Version 0.10.28 restores the Equipment dummy's skin and clothing colors after the menu's opening animation. For this fix, update the DLL on the PC client and relaunch the game.
+
+Version 0.10.25 restores existing armor visibility when a new PC client joins a 0.10.17 server. The client loads the armor advertised by that server and keeps the existing prefab IDs. Install the PC client update and reconnect to restore the visuals.
+
+Version 0.10.27 preserves the hue of bright alloys such as Electrum and reads the material profile from the equipped pickup. Existing pieces with a saved material profile use the updated colors when viewed by the new client.
 
 The armor-wheel dummy shows a durability percentage and condition bar for each equipped piece. The display refreshes with server armor state and disappears when the dummy closes.
 
@@ -44,9 +58,11 @@ The Woodland Helmet uses three woodcut wedges and one rope clump. Each group of 
 
 ## :evergreen_tree: Found in the world
 
+- **Phantom** — Each Phantom kill has a **1% chance (1 in 100)** to drop one piece. All seven pieces are equally likely. Phantoms fading at dawn do not drop armor. The set is loot-only, with 18% damage reduction and 125 durability per piece by default. A full set weighs 9.
 - **Mushroom Warden** — 18% damage reduction · 125 durability per piece · 5 weight per set. World loot chests have a 10% chance to add one random piece when stocked or restocked, if a compatible slot is free.
 - **Wyrm** — 18% damage reduction · 125 durability per piece · 9 weight per set. Each regular Wyrm kill has a **5% chance (1 in 20)** to drop one random Wyrm piece.
 - **Crystal Wyrm** — 30% damage reduction · 250 durability per piece · 9 weight per set. Each Crystal Wyrm kill has a **5% chance (1 in 20)** to drop one random Crystal Wyrm piece. Trial Wyrms roll from the pool for their matching variant.
+- **Fire Wyrm** — 36% damage reduction · 287.5 durability per piece · 9 weight per set by default. Each Fire Wyrm kill has a **1% chance (1 in 100)** to drop one random piece. Fire Wyrms are available on deep floors 101–200 with Extended Televator 1.2.3 or later. The set is loot-only.
 - **Newsboy Cap** — Cosmetic headwear · 0.5 item weight. World loot chests have a **1% chance (1 in 100)** to add a cap when stocked or restocked if a compatible slot is free.
 - **Bucket Helmet** — 18% damage reduction · 125 durability · 1.5 item weight. World loot chests have a separate **1% chance (1 in 100)** to add a helmet when stocked or restocked if a compatible slot is free.
 - **Spriggull Helmet** — 18% damage reduction · 125 durability · 1.5 item weight. Each Spriggull kill has a **1% chance (1 in 100)** to drop one helmet.
@@ -54,7 +70,7 @@ The Woodland Helmet uses three woodcut wedges and one rope clump. Each group of 
 
 ## :crossed_swords: Protection, wear, and weight
 
-The piece covering the area hit reduces eligible slashing, piercing, blunt, and explosive damage. Protection applies per hit without stacking across your outfit. Falls, hunger, poison, and fire bypass armor.
+The piece covering the area hit reduces eligible slashing, piercing, blunt, and explosive damage. Chest armor covers explosions and area damage that reach the player without a specific hit location. Protection applies per hit without stacking across your outfit. Falls, hunger, poison, and fire bypass armor.
 
 By default, each point of damage absorbed costs one point of durability. At zero durability, the piece stops protecting until repaired. Held, stored, and worn armor count toward ATT’s normal load, which can affect climbing. Chest pieces weigh the most.
 
@@ -100,11 +116,15 @@ Equipped armor stows with your belongings during the Climbing Tower’s Spirit m
 
 ## :book: The Armor Workshop
 
-Three armor workbenches, four display stands, a table with a lockbox, and a dedicated Armor Recipe Book on the central lectern. The book opens to the first learned page and groups recipes in Iron, Leather, Woodland, Hebios, and Forgeguard order. Each set runs from helmet to tassets. An administrator can place a workshop with `ATT_ArmorWorkshop`.
+Three armor workbenches, four display stands, a table with a lockbox, and a dedicated Armor Recipe Book on the central lectern. The book opens to page 1 and groups learned recipes in Iron, Leather, Woodland, Hebios, and Forgeguard order. Each set runs from helmet to tassets. An administrator can place a workshop with `ATT_ArmorWorkshop`.
 
 ## Server settings
 
 Server settings live in `UserData/PlayerArmor/armor.json`. The release ZIP includes [ExampleArmor.json](ExampleArmor.json), which shows how to configure armor stats, wood multipliers, recipes, and Mushroom Warden chest odds.
+
+Fire Wyrm pieces without an explicit settings entry get 15% more durability and 20% more damage reduction than the matching Crystal Wyrm piece, within the normal settings limits.
+
+To troubleshoot armor combat or crafting, create an empty `UserData/PlayerArmor/diagnostics.enabled` file for the game instance you want to trace, then restart it. Delete the file and restart to turn detailed tracing off again. Combat hit traces are written on the server. Crafting traces are available on both the server and PC client.
 
 If you are upgrading from before 0.10.11, the server halves maximum durability values in schema 1 or 2 once and backs up the previous settings as `armor.json.pre-durability-halving.bak`. Existing pieces keep their current condition percentage.
 
@@ -118,7 +138,7 @@ From the repository root in PowerShell, run the build with your game directory.
 .\src\Build-Windows.ps1 -GamePath 'D:\Games\A Township Tale'
 ```
 
-If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The default build writes the combined `PlayerArmor.dll` to `src/bin/`. Pass `-Package Client` or `-Package Server` for a role-specific DLL.
+If Unity is installed outside the default Unity Hub path, pass the path to `csc.exe` with `-CompilerPath`. The build writes the combined `PlayerArmor.dll` to `src/bin/`. Use the same DLL for the server and PC clients.
 
 ## Admin spawn commands
 
@@ -196,6 +216,30 @@ spawn PLAYER ATT_CrystalWyrmArmor_Bracer_Right
 spawn PLAYER ATT_CrystalWyrmArmor_Tassets
 ```
 
+### Fire Wyrm armor
+
+```text
+spawn PLAYER ATT_FireWyrmArmor_Helmet
+spawn PLAYER ATT_FireWyrmArmor_Cuirass
+spawn PLAYER ATT_FireWyrmArmor_Pauldron_Left
+spawn PLAYER ATT_FireWyrmArmor_Pauldron_Right
+spawn PLAYER ATT_FireWyrmArmor_Bracer_Left
+spawn PLAYER ATT_FireWyrmArmor_Bracer_Right
+spawn PLAYER ATT_FireWyrmArmor_Tassets
+```
+
+### Phantom armor
+
+```text
+spawn PLAYER ATT_PhantomArmor_Helmet
+spawn PLAYER ATT_PhantomArmor_Cuirass
+spawn PLAYER ATT_PhantomArmor_Pauldron_Left
+spawn PLAYER ATT_PhantomArmor_Pauldron_Right
+spawn PLAYER ATT_PhantomArmor_Bracer_Left
+spawn PLAYER ATT_PhantomArmor_Bracer_Right
+spawn PLAYER ATT_PhantomArmor_Tassets
+```
+
 ### Standalone helmets
 
 These helmets use the normal head slot. The Bucket Helmet, Newsboy Cap, and Cauldron Helmet can be found in world loot chests. Spriggulls can drop the Spriggull Helmet.
@@ -265,7 +309,7 @@ spawn PLAYER ATT_ArmorRecipeLectern
 spawn PLAYER ATT_ArmorStand
 ```
 
-Mushroom Warden gear comes from world loot chests. Regular Wyrms drop Wyrm gear, and Crystal Wyrms drop Crystal Wyrm gear.
+Mushroom Warden gear comes from world loot chests. Regular, Crystal, and Fire Wyrms each drop gear from their own set.
 
 ## Credits
 

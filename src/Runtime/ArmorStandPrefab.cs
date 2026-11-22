@@ -7,6 +7,7 @@ using ATT.Saving;
 using MelonLoader;
 using SyncLib.Items;
 using UnityEngine;
+using UnityEngine.Rendering;
 using Object = UnityEngine.Object;
 
 namespace PlayerArmorMod
@@ -58,11 +59,81 @@ namespace PlayerArmorMod
                 foreach (var renderer in root.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);
                 foreach (var filter in root.GetComponentsInChildren<MeshFilter>(true)) Object.DestroyImmediate(filter);
             }
-            else ArmorStereo.Configure(root);
+            else
+            {
+                CombineJoinery(root);
+                ArmorStereo.Configure(root);
+            }
             ArmorStandDocks.Install(root, prefab, mounts, assets);
             ArmorNative.Bind(root);
             root.SetActive(true);
             return root;
+        }
+
+        internal static void CombineJoinery(GameObject root)
+        {
+            var joinery = root.transform.Find("Joinery");
+            if (joinery == null) return;
+            var renderers = joinery.GetComponentsInChildren<MeshRenderer>(true);
+            if (renderers.Length < 2) return;
+            var first = renderers[0];
+            if (renderers.Any(renderer => !MatchesJoinery(first, renderer))) return;
+            var filters = renderers.Select(renderer => renderer.GetComponent<MeshFilter>()).ToArray();
+            if (filters.Any(filter => filter == null || filter.sharedMesh == null ||
+                !filter.sharedMesh.isReadable || filter.sharedMesh.subMeshCount != 1)) return;
+            var mesh = new Mesh { name = "Armor stand fitted joinery", hideFlags = HideFlags.DontSave };
+            GameObject node = null;
+            try
+            {
+                if (filters.Sum(filter => filter.sharedMesh.vertexCount) > ushort.MaxValue)
+                    mesh.indexFormat = IndexFormat.UInt32;
+                mesh.CombineMeshes(filters.Select(filter => new CombineInstance
+                {
+                    mesh = filter.sharedMesh,
+                    transform = joinery.worldToLocalMatrix * filter.transform.localToWorldMatrix
+                }).ToArray(), true, true);
+                mesh.RecalculateBounds();
+                node = new GameObject("Fitted stand frame");
+                node.transform.SetParent(joinery, false);
+                node.layer = first.gameObject.layer;
+                node.AddComponent<MeshFilter>().sharedMesh = mesh;
+                var combined = node.AddComponent<MeshRenderer>();
+                combined.sharedMaterial = first.sharedMaterial;
+                combined.shadowCastingMode = first.shadowCastingMode;
+                combined.receiveShadows = first.receiveShadows;
+                combined.lightProbeUsage = first.lightProbeUsage;
+                combined.reflectionProbeUsage = first.reflectionProbeUsage;
+                combined.probeAnchor = first.probeAnchor;
+                combined.lightProbeProxyVolumeOverride = first.lightProbeProxyVolumeOverride;
+                combined.motionVectorGenerationMode = first.motionVectorGenerationMode;
+                combined.allowOcclusionWhenDynamic = first.allowOcclusionWhenDynamic;
+                combined.renderingLayerMask = first.renderingLayerMask;
+                combined.sortingLayerID = first.sortingLayerID;
+                combined.sortingOrder = first.sortingOrder;
+                foreach (var renderer in renderers) Object.DestroyImmediate(renderer);
+                foreach (var filter in filters) Object.DestroyImmediate(filter);
+            }
+            catch
+            {
+                if (node != null) Object.DestroyImmediate(node);
+                Object.DestroyImmediate(mesh);
+                throw;
+            }
+        }
+
+        static bool MatchesJoinery(MeshRenderer first, MeshRenderer renderer)
+        {
+            return renderer.enabled && !renderer.forceRenderingOff && renderer.gameObject.activeSelf && !renderer.HasPropertyBlock() &&
+                !renderer.isPartOfStaticBatch && renderer.additionalVertexStreams == null &&
+                renderer.sharedMaterials.Length == 1 && renderer.sharedMaterial == first.sharedMaterial &&
+                renderer.gameObject.layer == first.gameObject.layer && renderer.shadowCastingMode == first.shadowCastingMode &&
+                renderer.receiveShadows == first.receiveShadows && renderer.lightProbeUsage == first.lightProbeUsage &&
+                renderer.reflectionProbeUsage == first.reflectionProbeUsage && renderer.probeAnchor == first.probeAnchor &&
+                renderer.lightProbeProxyVolumeOverride == first.lightProbeProxyVolumeOverride &&
+                renderer.motionVectorGenerationMode == first.motionVectorGenerationMode &&
+                renderer.allowOcclusionWhenDynamic == first.allowOcclusionWhenDynamic &&
+                renderer.renderingLayerMask == first.renderingLayerMask && renderer.sortingLayerID == first.sortingLayerID &&
+                renderer.sortingOrder == first.sortingOrder && renderer.lightmapIndex < 0 && renderer.realtimeLightmapIndex < 0;
         }
 
         static GameObject LoadTemplate(Transform parent)

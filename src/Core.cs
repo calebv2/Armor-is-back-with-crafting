@@ -1,3 +1,4 @@
+using System.IO;
 using MelonLoader;
 using UnityEngine;
 
@@ -7,6 +8,7 @@ namespace PlayerArmorMod
     {
         internal static Core Instance;
         internal static bool IsServer { get { return Application.isBatchMode; } }
+        internal static bool DiagnosticsEnabled { get; private set; }
         internal ArmorPrefabRegistry Assets;
         ArmorServer server;
         ArmorClient client;
@@ -18,6 +20,7 @@ namespace PlayerArmorMod
             if(!IsServer){LoggerInstance.Warning("Use PlayerArmor.Client.dll or the Combined build on a PC client.");return;}
 #endif
             Instance=this;
+            DiagnosticsEnabled=File.Exists(Path.Combine(MelonLoader.Utils.MelonEnvironment.UserDataDirectory,"PlayerArmor","diagnostics.enabled"));
             if(IsServer)ArmorSettings.InitializeServer(MelonLoader.Utils.MelonEnvironment.UserDataDirectory);
             ArmorDurability.Install(HarmonyInstance);ArmorCraftRecord.Install(HarmonyInstance);ArmorCrafting.Install(HarmonyInstance);
             ArmorWeight.Install(HarmonyInstance);
@@ -28,6 +31,7 @@ namespace PlayerArmorMod
                 MushroomChestLoot.Install(HarmonyInstance, Assets);
                 WyrmArmorLoot.Install(HarmonyInstance, Assets);
                 SpriggullHelmetLoot.Install(HarmonyInstance, Assets);
+                PhantomArmorLoot.Install(HarmonyInstance, Assets);
                 ArmorProtection.Install(HarmonyInstance);
                 server=new ArmorServer(Assets);server.Install(HarmonyInstance);
             }
@@ -35,7 +39,8 @@ namespace PlayerArmorMod
             {
                 client=new ArmorClient(Assets);client.Install(HarmonyInstance);
             }
-            Log("Player Armor 0.10.24 initialized as "+(IsServer?"server":"client")+". Armor recipes use the dedicated Armor Workshop.");
+            Log("Player Armor 0.10.39 initialized as "+(IsServer?"server":"client")+". Armor recipes use the dedicated Armor Workshop.");
+            if(DiagnosticsEnabled)Log("Player Armor combat and crafting diagnostics enabled.");
         }
         public override void OnLateInitializeMelon(){if(Assets!=null)Assets.Preload();}
         public override void OnUpdate()
@@ -57,6 +62,7 @@ namespace PlayerArmorMod
                 MushroomChestLoot.Dispose();
                 WyrmArmorLoot.Dispose();
                 SpriggullHelmetLoot.Dispose();
+                PhantomArmorLoot.Dispose();
                 if(server!=null)server.Dispose();ArmorProtection.Dispose();
             }
             else
@@ -64,6 +70,8 @@ namespace PlayerArmorMod
                 if(client!=null)client.Dispose();ArmorStereo.Dispose();
             }
             ArmorCrafting.Dispose();ArmorCraftRecord.Dispose();ArmorDurability.Dispose();Instance=null;
+            Assets?.Dispose();
+            DiagnosticsEnabled=false;
             ArmorSurfaceGrip.Dispose();
         }
         internal static void Log(string value){if(Instance!=null)Instance.LoggerInstance.Msg(value);}

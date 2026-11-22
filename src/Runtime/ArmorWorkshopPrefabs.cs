@@ -36,7 +36,10 @@ namespace PlayerArmorMod
 
         internal static bool IsBook(Book book)
         {
-            return book != null && HasPrefab(book.Entity, RecipeBook);
+            if (book == null) return false;
+            var collection = ArmorRecipeBookIntegration.WorkshopCollection;
+            if (collection != null && book.Collection != null && book.Collection.Hash == collection.Hash) return true;
+            return HasPrefab(book.Entity, RecipeBook);
         }
 
         internal static bool HasPrefab(NetworkEntity entity, NetworkPrefab template)
@@ -140,6 +143,7 @@ namespace PlayerArmorMod
                     int ground = LayerMask.NameToLayer("Ground");
                     if (ground < 0) throw new InvalidOperationException("Native Ground layer is unavailable");
                     foreach (var collider in house.GetComponentsInChildren<Collider>(true)) collider.gameObject.layer = ground;
+                    ArmorWorkshopCollision.Optimize(house);
                     if(Core.IsServer)
                     {
                         foreach (var renderer in house.GetComponentsInChildren<Renderer>(true)) Object.DestroyImmediate(renderer);

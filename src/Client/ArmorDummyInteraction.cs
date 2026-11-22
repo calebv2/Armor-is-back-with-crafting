@@ -31,7 +31,7 @@ namespace PlayerArmorMod
         string session;
         bool dummy;
         byte mask;
-        float now,nextResolve;
+        float now,nextPointCheck;
         sealed class Pending{internal EquipmentPartPickup Item;internal float Expires,Next;internal int Attempts;internal bool Dummy;}
         internal Transform GuideTarget {get;private set;}
         internal float GuideDistance {get;private set;}
@@ -64,7 +64,7 @@ namespace PlayerArmorMod
             foreach(var p in held)if(p!=null)p.Dispose();Array.Clear(held,0,held.Length);
             foreach(var p in pending)p.Item.Dispose();pending.Clear();
             foreach(var s in slots){s.Point=null;s.Occupied=false;}
-            Array.Clear(wasPressed,0,wasPressed.Length);room=null;root=null;owner=null;session=null;GuideTarget=null;GuideSlot=-1;nextResolve=0;
+            Array.Clear(wasPressed,0,wasPressed.Length);room=null;root=null;owner=null;session=null;GuideTarget=null;GuideSlot=-1;nextPointCheck=0;
         }
         internal void Update(PlayerCharacter actual,byte equippedMask,string nonce,float time)
         {
@@ -81,13 +81,13 @@ namespace PlayerArmorMod
             if(equipment!=null&&!inDummy){Reset();return;}
             var newRoot=inDummy?current.Dummy.Root:actual.CustomizationHandler==null?null:actual.CustomizationHandler.RootBone;
             if(newRoot==null||!newRoot.gameObject.activeInHierarchy){Reset();return;}
-            if(owner!=actual||root!=newRoot||session!=nonce||dummy!=inDummy)
+            if(owner!=actual||root!=newRoot||session!=nonce||dummy!=inDummy||room!=current)
             {
-                Reset();owner=actual;root=newRoot;session=nonce;room=inDummy?current:null;dummy=inDummy;ResolvePoints();
+                Reset();owner=actual;root=newRoot;session=nonce;room=inDummy?current:null;dummy=inDummy;
                 if (inDummy) DummyLayer = PlayerArmorRigBinding.BodyLayer(room.Dummy);
             }
             mask=equippedMask;
-            if(now>=nextResolve){ResolvePoints();nextResolve=now+.25f;}
+            RefreshPoints();
             hands[0]=owner.LeftController;hands[1]=owner.RightController;
             var armor0=Held(hands[0]);var armor1=Held(hands[1]);
             for(int i=0;i<slots.Length;i++){slots[i].Occupied=(mask&(1<<i))!=0;slots[i].IsDummy=dummy;}
@@ -165,9 +165,20 @@ namespace PlayerArmorMod
             if(best<0)best=fallback;
             if(best>=0)send(ArmorProtocol.EncodeTake(session,(ArmorSlot)best,wornIds[best],rightHand));
         }
+        void RefreshPoints()
+        {
+            if(root==null||now<nextPointCheck)return;
+            nextPointCheck=now+.25f;
+            foreach(var slot in slots)
+            {
+                if(slot.Point!=null&&slot.Point.IsChildOf(root))continue;
+                ResolvePoints();
+                break;
+            }
+        }
         void ResolvePoints()
         {
-            if(root==null)return;var transforms=root.GetComponentsInChildren<Transform>(true);
+            var transforms=root.GetComponentsInChildren<Transform>(true);
             foreach(var slot in slots)
             {
                 Transform found=null;foreach(var t in transforms)if(t.name==ArmorCatalog.Get(slot.Category).BoneName&&!OriginalArmorArt.IsSourceBone(t)){found=t;break;}

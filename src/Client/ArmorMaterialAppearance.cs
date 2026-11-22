@@ -86,6 +86,8 @@ namespace PlayerArmorMod
             if(palette==null)return;
             Apply(palette,layoutVersion,primaryCount,tintFasteners);revision=profileRevision;
         }
+        internal bool ReadyToRetry(float now) => applied==null && requestedHashes.Length!=0 &&
+            (requestedLayout==2 || ArmorCatalog.UsesMetalMaterials(style)) && now>=retry;
         Color[] ReadColors(IList<uint> hashes,int count)
         {
             var palette=new Color[count];
@@ -270,10 +272,16 @@ namespace PlayerArmorMod
             var basisMaterial=Alta.HashedGeneralValue<PhysicalMaterial>.Get("iron",false);
             var basis=basisMaterial==null?null:Read(basisMaterial.Hash);
             if(!raw.HasValue||!basis.HasValue)return null;
-            result=new Color(Ratio(raw.Value.r,basis.Value.r),Ratio(raw.Value.g,basis.Value.g),Ratio(raw.Value.b,basis.Value.b),1);
+            float red = Ratio(raw.Value.r, basis.Value.r);
+            float green = Ratio(raw.Value.g, basis.Value.g);
+            float blue = Ratio(raw.Value.b, basis.Value.b);
+            // Keep the tint in the armor shader's brightness range. Scale
+            // all channels together so bright alloys keep their original hue.
+            float scale = 2f / Mathf.Max(2f, Mathf.Max(red, Mathf.Max(green, blue)));
+            result = new Color(red * scale, green * scale, blue * scale, 1f);
             colors[key]=result;return result;
         }
-        static float Ratio(float value,float baseline){return Mathf.Clamp(value/Math.Max(baseline,.01f),0,2);}
+        static float Ratio(float value,float baseline){return Mathf.Max(0,value/Math.Max(baseline,.01f));}
         static PhysicalMaterial NativeMaterial(uint hash)
         {
             foreach(var candidate in Alta.HashedGeneralValue<PhysicalMaterial>.All)if(candidate!=null&&candidate.Hash==hash)return candidate;

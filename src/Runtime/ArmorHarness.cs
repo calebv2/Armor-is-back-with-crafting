@@ -20,6 +20,8 @@ namespace PlayerArmorMod
         public Item[] MushroomItems;
         public Item[] WyrmItems;
         public Item[] CrystalWyrmItems;
+        public Item[] FireWyrmItems;
+        public Item[] PhantomItems;
         public Item[] ForgeguardItems;
         public Item[] StandaloneHelmetItems;
         internal Item ItemFor(ArmorStyle style,ArmorSlot slot)
@@ -41,6 +43,8 @@ namespace PlayerArmorMod
                 case ArmorStyle.Mushroom:return MushroomItems;
                 case ArmorStyle.Wyrm:return WyrmItems;
                 case ArmorStyle.CrystalWyrm:return CrystalWyrmItems;
+                case ArmorStyle.FireWyrm:return FireWyrmItems;
+                case ArmorStyle.Phantom:return PhantomItems;
                 case ArmorStyle.Forgeguard:return ForgeguardItems;
                 default:return null;
             }
@@ -110,7 +114,7 @@ namespace PlayerArmorMod
                 throw new InvalidOperationException("Equipment persistence requires seven registered item slots.");
             if(LeatherItems!=null&&LeatherItems.Length!=ArmorCatalog.SlotCount)
                 throw new InvalidOperationException("Leather persistence requires seven registered item slots.");
-            foreach(var items in new[]{WoodlandItems,HebiosItems,MushroomItems,WyrmItems,CrystalWyrmItems,ForgeguardItems})
+            foreach(var items in new[]{WoodlandItems,HebiosItems,MushroomItems,WyrmItems,CrystalWyrmItems,ForgeguardItems,FireWyrmItems,PhantomItems})
                 if(items!=null&&items.Length!=ArmorCatalog.SlotCount)throw new InvalidOperationException("Armor family persistence requires seven registered item slots.");
             if(StandaloneHelmetItems!=null&&StandaloneHelmetItems.Length!=ArmorCatalog.StandaloneHelmets.Count)
                 throw new InvalidOperationException("Incomplete standalone helmet registration.");
@@ -255,6 +259,8 @@ namespace PlayerArmorMod
                 for(int i=0;i<StandaloneHelmetItems.Length;i++)
                     if(MatchesItem(StandaloneHelmetItems,i,item))return ArmorCatalog.StandaloneHelmets[i].Style;
             if(MatchesItem(ForgeguardItems,slot,item))return ArmorStyle.Forgeguard;
+            if(MatchesItem(FireWyrmItems,slot,item))return ArmorStyle.FireWyrm;
+            if(MatchesItem(PhantomItems,slot,item))return ArmorStyle.Phantom;
             for(int index=0;index<=(int)ArmorStyle.CrystalWyrm;index++)
             {
                 var style=(ArmorStyle)index;

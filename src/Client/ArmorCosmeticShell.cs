@@ -38,6 +38,40 @@ namespace PlayerArmorMod
             return true;
         }
 
+        internal static ArmorCosmeticShell BodySurface(IEnumerable<Mesh> meshes)
+        {
+            var triangles = new List<Triangle>();
+            foreach (var mesh in meshes)
+                AddTriangles(triangles, mesh, mesh.vertices);
+            return triangles.Count == 0 ? null : new ArmorCosmeticShell(triangles, Vector3.zero, Vector3.zero);
+        }
+
+        internal bool ClothClearance(Vector3 point, ArmorCosmeticShell body, out Vector3 inward,
+            out float allowable, out float required)
+        {
+            inward = Vector3.zero;
+            allowable = required = 0f;
+            if (root == null || body.root == null) return false;
+            Vector3 origin = center + Vector3.Dot(point - center, axis) * axis;
+            Vector3 radial = point - origin;
+            float radius = radial.magnitude;
+            if (radius < MinimumRadius) return false;
+            var ray = new Ray(origin, radial / radius);
+            float skin = radius;
+            if (!body.root.FindSurface(ray, ref skin)) return false;
+            const float FabricGap = .0035f;
+            allowable = radius - (skin + FabricGap);
+            if (allowable <= 0f) return false;
+            inward = -ray.direction;
+
+            // Skip straps or plate faces buried beneath the body. A real gap
+            // between the base skin and armor is required for the underlayer.
+            float shell = radius + Clearance;
+            if (root.FindSurface(ray, ref shell, skin + FabricGap))
+                required = Mathf.Clamp(radius - (shell - Clearance), 0f, allowable);
+            return true;
+        }
+
         internal static ArmorCosmeticShell Build(ArmorSlot slot, Transform anchor, Renderer[] renderers,
             Dictionary<Transform, int> indices, Matrix4x4[] bindPoses)
         {
@@ -47,10 +81,11 @@ namespace PlayerArmorMod
             // the fit follows the cap instead of stopping below its top.
             Vector3 axis = slot == ArmorSlot.Head ? Vector3.zero : Vector3.forward;
             if (slot == ArmorSlot.Head) center += Vector3.forward * .055f;
-            if (slot == ArmorSlot.Chest || slot == ArmorSlot.Hips) center.y = 0f;
             string joint = null;
             switch (slot)
             {
+                case ArmorSlot.Chest: joint = "hipBase_jnt"; break;
+                case ArmorSlot.Hips: joint = "chest_jnt"; break;
                 case ArmorSlot.LeftShoulder: joint = "elbow_L_jnt"; break;
                 case ArmorSlot.RightShoulder: joint = "elbow_R_jnt"; break;
                 case ArmorSlot.LeftForearm: joint = "wrist_L_jnt"; break;
@@ -162,7 +197,7 @@ namespace PlayerArmorMod
                 Bounds = bounds;
             }
 
-            internal bool FindSurface(Ray ray, ref float closest)
+            internal bool FindSurface(Ray ray, ref float closest, float minimum = MinimumRadius)
             {
                 Vector3 p = Vector3.Cross(ray.direction, edgeB);
                 float determinant = Vector3.Dot(edgeA, p);
@@ -175,7 +210,7 @@ namespace PlayerArmorMod
                 float v = Vector3.Dot(ray.direction, q) * inverse;
                 if (v < 0f || u + v > 1f) return false;
                 float distance = Vector3.Dot(edgeB, q) * inverse;
-                if (distance <= MinimumRadius || distance >= closest) return false;
+                if (distance <= minimum || distance >= closest) return false;
                 closest = distance;
                 return true;
             }
@@ -211,13 +246,13 @@ namespace PlayerArmorMod
                 right = new Node(triangles, start + half, count - half);
             }
 
-            internal bool FindSurface(Ray ray, ref float closest)
+            internal bool FindSurface(Ray ray, ref float closest, float minimum = MinimumRadius)
             {
                 if (!bounds.IntersectRay(ray, out float distance) || distance > closest) return false;
                 if (triangles == null)
-                    return left.FindSurface(ray, ref closest) | right.FindSurface(ray, ref closest);
+                    return left.FindSurface(ray, ref closest, minimum) | right.FindSurface(ray, ref closest, minimum);
                 bool hit = false;
-                for (int i = start; i < start + count; i++) hit |= triangles[i].FindSurface(ray, ref closest);
+                for (int i = start; i < start + count; i++) hit |= triangles[i].FindSurface(ray, ref closest, minimum);
                 return hit;
             }
         }
